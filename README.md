@@ -1,16 +1,41 @@
-# panatask
+# 📝 Panatask
 
-A new Flutter project.
+**Panatask** est une application de gestion de tâches moderne, conçue pour vous aider à organiser votre quotidien avec clarté, efficacité et élégance. Que vous soyez développeur, étudiant ou entrepreneur, Panatask vous offre une interface intuitive pour planifier, suivre et accomplir vos objectifs.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Fonctionnalités
 
-A few resources to get you started if this is your first Flutter project:
+- ✅ Création rapide de tâches avec titre, description, date et priorité
+- 📂 Organisation par catégories (travail, personnel, urgent, etc.)
+- 🔔 Rappels et notifications intelligents
+- 📅 Vue calendrier pour visualiser les échéances
+- 🌙 Mode sombre et clair
+- 🔄 Synchronisation Firebase (Cloud Firestore)
+- 🧘 Interface fluide et animations douces avec Flutter
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📸 Aperçu
+
+> *(Ajoute ici des captures d’écran de l’app une fois disponibles)*
+
+---
+
+## 🛠️ Technologies utilisées
+
+- **Flutter** – UI rapide et multiplateforme
+- **Firebase Firestore** – Base de données en temps réel
+- **Firebase Auth** – Authentification sécurisée
+- **Provider / Riverpod** – Gestion d’état
+- **Animations Flutter** – Transitions fluides et feedback visuel
+
+---
+
+## 📦 Installation
+
+```bash
+git clone https://github.com/ton-utilisateur/panatask.git
+cd panatask
+flutter pub get
+flutter run
