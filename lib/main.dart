@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:panatask/data/db_helper.dart';
 import 'package:panatask/pages/aide.dart';
 import 'package:panatask/pages/apropos.dart';
+import 'package:panatask/pages/parametres_page.dart'; // Ajout de l'import
 import 'package:date_field/date_field.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -179,7 +180,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         try {
           DateTime taskDate = DateFormat('yyyy-MM-dd HH:mm').parse(task['date']);
           if (taskDate.isAfter(DateTime.now())) {
-            _scheduleNotification(id, "Rappel: ${task['titre']}", task['description'], taskDate);
+            _scheduleNotification(id, "Rappel: \${task['titre']}", task['description'], taskDate);
           }
         } catch (e) {
           print("Error parsing date for rescheduling: $e");
@@ -388,7 +389,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           title: const ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.edit_note_rounded, color: Colors.orange),
-            title: Text("Édition d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+            title: Text("Édition d\\'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
           ),
           content: SingleChildScrollView(
             child: Form(
@@ -505,7 +506,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           title: const ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.task_alt_rounded, color: Colors.green),
-            title: Text("Création d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+            title: Text("Création d\\'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
           ),
           content: SingleChildScrollView(
             child: Form(
@@ -743,6 +744,22 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     Icon(Icons.restart_alt, color: Colors.redAccent),
                     SizedBox(width: 8),
                     Text("Réinitialiser la base", style: TextStyle(decoration: TextDecoration.none)),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>( // Ajout du nouvel item "Paramètres"
+                value: 'parametres',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ParametresPage()),
+                  );
+                },
+                child: const Row(
+                  children: [
+                    Icon(Icons.settings_outlined, color: Colors.blueGrey), // Ou une autre couleur
+                    SizedBox(width: 8),
+                    Text("Paramètres", style: TextStyle(decoration: TextDecoration.none)),
                   ],
                 ),
               ),

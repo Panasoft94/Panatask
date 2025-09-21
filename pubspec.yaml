@@ -47,6 +47,7 @@ dependencies:
   flutter_local_notifications_platform_interface: ^9.1.0
   timezone: ^0.10.1
   flutter_native_timezone: ^2.0.0 # Added this line
+  app_settings: ^5.1.1
 
 
 dev_dependencies:
