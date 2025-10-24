@@ -235,7 +235,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         id, title, body, tzScheduledDate, notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: 'TaskID|$id',
-        matchDateTimeComponents: DateTimeComponents.time,
       );
     } catch (e) {
       print('Error scheduling notification for task $id: $e');
@@ -389,7 +388,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           title: const ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.edit_note_rounded, color: Colors.orange),
-            title: Text("Édition d\\'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+            title: Text("Édition d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
           ),
           content: SingleChildScrollView(
             child: Form(
@@ -506,7 +505,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           title: const ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.task_alt_rounded, color: Colors.green),
-            title: Text("Création d\\'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+            title: Text("Création d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
           ),
           content: SingleChildScrollView(
             child: Form(

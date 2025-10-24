@@ -87,10 +87,9 @@ class _AidePageState extends State<AidePage> {
           "Aide & commentaire ",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 25,
             color: Colors.white,
-            letterSpacing: 1.2,
-            fontFamily: "BodoniMT"
+            letterSpacing: 1.2
           ),
         ),
         centerTitle: true,
