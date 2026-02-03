@@ -76,7 +76,20 @@ class _AidePageState extends State<AidePage> {
         "icon": Icons.restart_alt_rounded,
         "color": Colors.purple,
       },
+      // Ajout de l'aide pour les paramètres
+      {
+        "text": "Pour accéder aux paramètres de l'application...",
+        "icon": Icons.settings_outlined,
+        "color": Colors.blueGrey,
+      },
     ];
+
+    const _inputDecoration = InputDecoration(
+      filled: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(30)),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -125,33 +138,27 @@ class _AidePageState extends State<AidePage> {
                             TextFormField(
                               controller: _nomController,
                               validator: (value) => value == null || value.isEmpty ? "Nom requis" : null,
-                              decoration: const InputDecoration(
+                              decoration: _inputDecoration.copyWith(
                                 labelText: "Nom de la famille",
-                                prefixIcon: Icon(Icons.person),
-                                filled: true,
-                                border: OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.person),
                               ),
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _prenomController,
                               validator: (value) => value == null || value.isEmpty ? "Prénom requis" : null,
-                              decoration: const InputDecoration(
+                              decoration: _inputDecoration.copyWith(
                                 labelText: "Prénom",
-                                prefixIcon: Icon(Icons.person_outline),
-                                filled: true,
-                                border: OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.person_outline),
                               ),
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _emailController,
                               validator: (value) => value == null || !value.contains("@") ? "Email valide requis" : null,
-                              decoration: const InputDecoration(
+                              decoration: _inputDecoration.copyWith(
                                 labelText: "Adresse E-mail",
-                                prefixIcon: Icon(Icons.email),
-                                filled: true,
-                                border: OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.email),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -159,11 +166,9 @@ class _AidePageState extends State<AidePage> {
                               controller: _commentaireController,
                               validator: (value) => value == null || value.isEmpty ? "Commentaire requis" : null,
                               maxLines: 4,
-                              decoration: const InputDecoration(
+                              decoration: _inputDecoration.copyWith(
                                 labelText: "Contenu du commentaire",
-                                prefixIcon: Icon(Icons.comment),
-                                filled: true,
-                                border: OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.comment),
                               ),
                             ),
                             const SizedBox(height: 20),

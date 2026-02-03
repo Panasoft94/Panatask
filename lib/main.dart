@@ -245,6 +245,18 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     await flutterLocalNotificationsPlugin.cancel(id);
   }
 
+  PageRouteBuilder _slideTransition(Widget page) {
+    return PageRouteBuilder(
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(animation),
+          child: child,
+        );
+      },
+    );
+  }
+
   void _filterTasks() {
     final query = _searchController.text.toLowerCase();
     setState(() {
@@ -497,110 +509,130 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _descriptionController.clear();
     selectedDate = DateTime.now();
 
-    return showDialog<void>(
+    return showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.task_alt_rounded, color: Colors.green),
-            title: Text("Création d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+        return Padding(
+          // Adjust padding for keyboard if necessary
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 16.0,
+            left: 16.0,
+            right: 16.0,
           ),
-          content: SingleChildScrollView(
-            child: Form(
-              key: _formkey,
-               child: StatefulBuilder(
-                builder: (BuildContext context, StateSetter setStateDialog) {
-                  DateTime dialogSelectedDate = selectedDate;
-                  return Column(
-                    children: [
-                      TextFormField(
-                        controller: _titreController,
-                        minLines: 2,
-                        maxLines: 3,
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null,
-                        decoration: InputDecoration(
-                          labelText: "Titre de la tâche", hintText: "Ex. : Finaliser l’interface utilisateur",
-                          prefixIcon: const Icon(Icons.title_rounded), filled: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        style: const TextStyle(decoration: TextDecoration.none),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _descriptionController,
-                        minLines: 4,
-                        maxLines: 6,
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null,
-                        decoration: InputDecoration(
-                          labelText: "Description de la tâche", hintText: "Détaille les étapes ou les objectifs de la tâche",
-                          prefixIcon: const Icon(Icons.description_rounded), filled: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        style: const TextStyle(decoration: TextDecoration.none),
-                      ),
-                      const SizedBox(height: 12),
-                      DateTimeFormField(
-                        decoration: InputDecoration(
-                          label: const Text("Date de réalisation"),
-                          prefixIcon: const Icon(Icons.calendar_today_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        mode: DateTimeFieldPickerMode.dateAndTime,
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                        initialPickerDateTime: dialogSelectedDate,
-                        onChanged: (DateTime? value) {
-                          if (value != null) {
-                            setStateDialog(() => dialogSelectedDate = value);
-                            setState(() => selectedDate = value);
-                          }
-                        },
-                        style: const TextStyle(decoration: TextDecoration.none),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoading ? null : () async {
-                                if (_formkey.currentState!.validate()) {
-                                  setState(() => _isLoading = true);
-                                  setState(() => selectedDate = dialogSelectedDate);
-                                  _addTask();
-                                  Navigator.of(context).pop();
-                                  _titreController.clear();
-                                  _descriptionController.clear();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("✅ La tâche a été ajoutée avec succès !", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)),
-                                      behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true,
-                                    ),
-                                  );
-                                  setState(() => _isLoading = false);
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.save_rounded, color: Colors.white),
-                              label: const Text("Valider", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title equivalent from AlertDialog
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.task_alt_rounded, color: Colors.green),
+                  title: Text("Création d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                ),
+                const SizedBox(height: 12),
+                // Content (Form) equivalent
+                Form(
+                  key: _formkey,
+                  child: StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setStateDialog) {
+                      DateTime dialogSelectedDate = selectedDate;
+                      return Column(
+                        children: [
+                          TextFormField(
+                            controller: _titreController,
+                            minLines: 2,
+                            maxLines: 3,
+                            validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null,
+                            decoration: InputDecoration(
+                              labelText: "Titre de la tâche", hintText: "Ex. : Finaliser l’interface utilisateur",
+                              prefixIcon: const Icon(Icons.title_rounded), filled: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
                             ),
+                            style: const TextStyle(decoration: TextDecoration.none),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => Navigator.of(context).pop(),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.cancel_outlined, color: Colors.white),
-                              label: const Text("Annuler", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _descriptionController,
+                            minLines: 4,
+                            maxLines: 6,
+                            validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null,
+                            decoration: InputDecoration(
+                              labelText: "Description de la tâche", hintText: "Détaille les étapes ou les objectifs de la tâche",
+                              prefixIcon: const Icon(Icons.description_rounded), filled: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
                             ),
+                            style: const TextStyle(decoration: TextDecoration.none),
                           ),
+                          const SizedBox(height: 12),
+                          DateTimeFormField(
+                            decoration: InputDecoration(
+                              label: const Text("Date de réalisation"),
+                              prefixIcon: const Icon(Icons.calendar_today_rounded),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            mode: DateTimeFieldPickerMode.dateAndTime,
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            initialPickerDateTime: dialogSelectedDate,
+                            onChanged: (DateTime? value) {
+                              if (value != null) {
+                                setStateDialog(() => dialogSelectedDate = value);
+                                setState(() => selectedDate = value);
+                              }
+                            },
+                            style: const TextStyle(decoration: TextDecoration.none),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : () async {
+                                    if (_formkey.currentState!.validate()) {
+                                      setState(() => _isLoading = true);
+                                      setState(() => selectedDate = dialogSelectedDate);
+                                      _addTask();
+                                      Navigator.of(context).pop();
+                                      _titreController.clear();
+                                      _descriptionController.clear();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("✅ La tâche a été ajoutée avec succès !", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)),
+                                          behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true,
+                                        ),
+                                      );
+                                      setState(() => _isLoading = false);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                  icon: const Icon(Icons.save_rounded, color: Colors.white),
+                                  label: const Text("Valider", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                  icon: const Icon(Icons.cancel_outlined, color: Colors.white),
+                                  label: const Text("Annuler", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16), // Add bottom padding for a clean look
                         ],
-                      ),
-                    ],
-                  );
-                }
-              ),
+                      );
+                    }
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -721,13 +753,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         ),
         actions: [
           IconButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AproposPage())),
+            onPressed: () => Navigator.push(context, _slideTransition(const AproposPage())),
             icon: const Icon(Icons.info_outline_rounded),
             color: Colors.white,
             tooltip: "À propos",
           ),
           IconButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AidePage())),
+            onPressed: () => Navigator.push(context, _slideTransition(const AidePage())),
             icon: const Icon(Icons.help_outline_rounded),
             color: Colors.white,
             tooltip: "Aide",
@@ -749,10 +781,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               PopupMenuItem<String>( // Ajout du nouvel item "Paramètres"
                 value: 'parametres',
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ParametresPage()),
-                  );
+                  // Use a small delay for onTap to allow the PopupMenuButton to close before navigation
+                  Future.delayed(const Duration(milliseconds: 0), () {
+                    Navigator.push(
+                      context,
+                      _slideTransition(const ParametresPage()),
+                    );
+                  });
                 },
                 child: const Row(
                   children: [
