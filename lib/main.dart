@@ -392,111 +392,128 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       selectedDate = DateTime.now();
     }
 
-    return showDialog<void>(
+    return showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.edit_note_rounded, color: Colors.orange),
-            title: Text("Édition d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 16.0,
+            left: 16.0,
+            right: 16.0,
           ),
-          content: SingleChildScrollView(
-            child: Form(
-              key: _formkey,
-              child: StatefulBuilder(
-                builder: (BuildContext context, StateSetter setStateDialog) {
-                  DateTime dialogSelectedDate = selectedDate;
-                  return Column(
-                    children: [
-                      TextFormField(
-                        controller: _titreController,
-                        maxLines: 3,
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null,
-                        decoration: InputDecoration(
-                          labelText: "Titre de la tâche",
-                          prefixIcon: const Icon(Icons.title_rounded),
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        style: const TextStyle(decoration: TextDecoration.none),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _descriptionController,
-                        minLines: 4,
-                        maxLines: 6,
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null,
-                        decoration: InputDecoration(
-                          labelText: "Description de la tâche",
-                          hintText: "Décris la tâche à accomplir",
-                          prefixIcon: const Icon(Icons.description_rounded),
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        style: const TextStyle(decoration: TextDecoration.none),
-                      ),
-                      const SizedBox(height: 12),
-                      DateTimeFormField(
-                        decoration: InputDecoration(
-                          label: const Text("Date de réalisation"),
-                          prefixIcon: const Icon(Icons.calendar_today_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        mode: DateTimeFieldPickerMode.dateAndTime,
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                        initialPickerDateTime: dialogSelectedDate,
-                        onChanged: (DateTime? value) {
-                          if (value != null) {
-                            setStateDialog(() => dialogSelectedDate = value);
-                            setState(() => selectedDate = value);
-                          }
-                        },
-                        style: const TextStyle(decoration: TextDecoration.none),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoading ? null : () async {
-                                if (_formkey.currentState!.validate()) {
-                                  setState(() => _isLoading = true);
-                                  _updateTaskInfo(task['id'], _titreController.text, _descriptionController.text, dialogSelectedDate);
-                                  Navigator.of(context).pop();
-                                  _titreController.clear();
-                                  _descriptionController.clear();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("✏️ Modification effectuée avec succès!", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)),
-                                      behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true,
-                                    ),
-                                  );
-                                  setState(() => _isLoading = false);
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.save_rounded, color: Colors.white),
-                              label: const Text("Sauver", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.edit_note_rounded, color: Colors.orange),
+                  title: Text("Édition d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                ),
+                const SizedBox(height: 12),
+                Form(
+                  key: _formkey,
+                  child: StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setStateDialog) {
+                      DateTime dialogSelectedDate = selectedDate;
+                      return Column(
+                        children: [
+                          TextFormField(
+                            controller: _titreController,
+                            maxLines: 3,
+                            validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null,
+                            decoration: InputDecoration(
+                              labelText: "Titre de la tâche",
+                              prefixIcon: const Icon(Icons.title_rounded),
+                              filled: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
                             ),
+                            style: const TextStyle(decoration: TextDecoration.none),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => Navigator.of(context).pop(),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.cancel_outlined, color: Colors.white),
-                              label: const Text("Annuler", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _descriptionController,
+                            minLines: 4,
+                            maxLines: 6,
+                            validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null,
+                            decoration: InputDecoration(
+                              labelText: "Description de la tâche",
+                              hintText: "Décris la tâche à accomplir",
+                              prefixIcon: const Icon(Icons.description_rounded),
+                              filled: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
                             ),
+                            style: const TextStyle(decoration: TextDecoration.none),
                           ),
+                          const SizedBox(height: 12),
+                          DateTimeFormField(
+                            decoration: InputDecoration(
+                              label: const Text("Date de réalisation"),
+                              prefixIcon: const Icon(Icons.calendar_today_rounded),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            mode: DateTimeFieldPickerMode.dateAndTime,
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            initialPickerDateTime: dialogSelectedDate,
+                            onChanged: (DateTime? value) {
+                              if (value != null) {
+                                setStateDialog(() => dialogSelectedDate = value);
+                                setState(() => selectedDate = value);
+                              }
+                            },
+                            style: const TextStyle(decoration: TextDecoration.none),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : () async {
+                                    if (_formkey.currentState!.validate()) {
+                                      setState(() => _isLoading = true);
+                                      _updateTaskInfo(task['id'], _titreController.text, _descriptionController.text, dialogSelectedDate);
+                                      Navigator.of(context).pop();
+                                      _titreController.clear();
+                                      _descriptionController.clear();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("✏️ Modification effectuée avec succès!", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)),
+                                          behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true,
+                                        ),
+                                      );
+                                      setState(() => _isLoading = false);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                  icon: const Icon(Icons.save_rounded, color: Colors.white),
+                                  label: const Text("Sauver", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                  icon: const Icon(Icons.cancel_outlined, color: Colors.white),
+                                  label: const Text("Annuler", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                         ],
-                      ),
-                    ],
-                  );
-                }
-              ),
+                      );
+                    }
+                  ),
+                ),
+              ],
             ),
           ),
         );
