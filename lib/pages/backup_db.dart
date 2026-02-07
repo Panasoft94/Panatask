@@ -30,19 +30,59 @@ class _BackupDbPageState extends State<BackupDbPage> {
     // The user will see the path of the last successful backup if verification is included.
   }
 
-  Future<void> _requestStoragePermission() async {
+  Future<bool> _requestStoragePermission() async {
     if (Platform.isAndroid || Platform.isIOS) {
       PermissionStatus status = await Permission.storage.status;
+
+      if (status.isPermanentlyDenied) {
+        // Permission refusée de façon permanente, demander à l'utilisateur d'ouvrir les paramètres.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Permission de stockage requise. Veuillez l\'autoriser dans les paramètres de l\'application.'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Ouvrir les paramètres',
+              onPressed: () {
+                openAppSettings();
+              },
+            ),
+          ),
+        );
+        return false;
+      }
+
       if (!status.isGranted) {
+        // Demander la permission
         status = await Permission.storage.request();
       }
-      if (!status.isGranted) {
+
+      if (status.isGranted) {
+        return true;
+      } else if (status.isPermanentlyDenied) {
+        // La permission est devenue définitivement refusée suite à la requête.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission de stockage requise pour sauvegarder/restaurer.'), backgroundColor: Colors.red),
+          SnackBar(
+            content: const Text('Permission de stockage requise. Veuillez l\'autoriser dans les paramètres de l\'application.'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Ouvrir les paramètres',
+              onPressed: () {
+                openAppSettings();
+              },
+            ),
+          ),
         );
-        return;
+        return false;
+      } else {
+        // Permission refusée par l'utilisateur (mais pas définitivement)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission de stockage refusée.'), backgroundColor: Colors.red),
+        );
+        return false;
       }
     }
+    // Pour les plateformes non Android/iOS, on considère la permission comme acquise.
+    return true;
   }
 
   Future<void> _backupDatabase() async {
@@ -52,7 +92,10 @@ class _BackupDbPageState extends State<BackupDbPage> {
     });
 
     try {
-      await _requestStoragePermission();
+      if (!(await _requestStoragePermission())) {
+        return;
+      }
+
       String? filePath = await DbHelper.backupDatabaseToFile();
 
       if (filePath != null) {
@@ -90,7 +133,9 @@ class _BackupDbPageState extends State<BackupDbPage> {
     });
 
     try {
-      await _requestStoragePermission();
+      if (!(await _requestStoragePermission())) {
+        return;
+      }
 
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,

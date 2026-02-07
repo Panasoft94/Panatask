@@ -11,6 +11,7 @@ import 'package:panatask/pages/backup_db.dart';
 import 'package:date_field/date_field.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:permission_handler/permission_handler.dart'; // Ajout de l'import pour les permissions
 
 // Notification and Timezone imports
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -89,6 +90,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     _initializeNotifications();
+    
+    // Demander les permissions au démarrage après que le widget soit entièrement construit
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestNotificationPermission();
+      _requestInitialStoragePermission();
+    });
+
     _refreshTasks();
     _filteredTasks = _tasks;
     _searchController.addListener(_filterTasks);
@@ -103,6 +111,81 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
     _animationController.forward();
   }
+  
+  // Nouvelle fonction pour demander la permission de stockage au lancement
+  Future<void> _requestInitialStoragePermission() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      PermissionStatus status = await Permission.storage.status;
+
+      if (status.isPermanentlyDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Permission de stockage requise pour la sauvegarde/restauration. Veuillez l\'autoriser dans les paramètres.'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: 'Ouvrir les paramètres',
+                onPressed: () {
+                  openAppSettings();
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!status.isGranted) {
+        // Demander la permission
+        status = await Permission.storage.request();
+
+        if (!status.isGranted && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission de stockage refusée. La sauvegarde et la restauration pourraient échouer.'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    }
+  }
+
+
+  Future<void> _requestNotificationPermission() async {
+    // Vérifie et demande la permission de notification pour toutes les plateformes
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+      PermissionStatus status = await Permission.notification.status;
+
+      if (status.isPermanentlyDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Permission de notification requise pour les rappels. Veuillez l\'autoriser dans les paramètres de l\'application.'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: 'Ouvrir les paramètres',
+                onPressed: () {
+                  openAppSettings();
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!status.isGranted) {
+        // Demander la permission
+        status = await Permission.notification.request();
+
+        if (!status.isGranted && mounted) {
+          // Afficher un message si l'utilisateur refuse
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission de notification refusée. Les rappels ne fonctionneront pas.'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    }
+  }
+
 
   Future<void> _initializeNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -132,6 +215,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
 
     if (Platform.isAndroid) {
+      // Pour les API Android plus récentes (33+), on demande aussi via le plugin FLNP
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
       flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
@@ -140,29 +224,28 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   // Nouvelle fonction pour planifier les notifications quotidiennes dans un intervalle
-  // Cette méthode honore la date de fin en planifiant une notification distincte pour chaque jour.
   Future<void> _scheduleDailyNotificationsBetweenDates(int id, String title, String body, DateTime startDate, DateTime endDate) async {
-    // 1. Déterminer l'heure de la notification
     final int hour = startDate.hour;
     final int minute = startDate.minute;
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
 
-    // Déterminer le jour de début pour la planification.
-    DateTime currentDay = DateTime(now.year, now.month, now.day, hour, minute);
+    // Initialiser la première occurrence à la date de début définie
+    DateTime currentDay = DateTime(startDate.year, startDate.month, startDate.day, hour, minute);
     
-    // Si l'heure d'aujourd'hui est déjà passée, on commence demain.
-    if (currentDay.isBefore(now)) {
-        currentDay = currentDay.add(const Duration(days: 1));
+    // Si l'occurrence sur la date de début est déjà passée par rapport à maintenant, 
+    // on cherche la prochaine occurrence (aujourd'hui plus tard ou demain)
+    if (currentDay.isBefore(DateTime.now())) {
+      DateTime todayAtTime = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, hour, minute);
+      if (todayAtTime.isBefore(DateTime.now())) {
+        currentDay = todayAtTime.add(const Duration(days: 1));
+      } else {
+        currentDay = todayAtTime;
+      }
     }
-    
-    // Si la date de début de l'intervalle est dans le futur, on commence à cette date.
-    if (startDate.isAfter(currentDay)) {
-        currentDay = DateTime(startDate.year, startDate.month, startDate.day, hour, minute);
-    }
-    
-    // Si la date de fin est passée, ne rien faire
-    if (endDate.isBefore(now.subtract(const Duration(days: 1)))) {
-        print("Notification end date $endDate is in the past. Not scheduling.");
+
+    // Si après ajustement on dépasse déjà la date de fin, on ne planifie rien
+    if (currentDay.isAfter(endDate)) {
+        debugPrint("Aucune notification planifiée car la date de fin est déjà passée pour l'heure donnée.");
         return;
     }
 
@@ -171,27 +254,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       channelDescription: 'Rappels quotidiens pour les tâches',
       importance: Importance.max, priority: Priority.high, ticker: 'ticker',
     );
-    const DarwinNotificationDetails darwinNotificationDetails = DarwinNotificationDetails(
-      presentAlert: true, presentBadge: true, presentSound: true,
-    );
     const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidNotificationDetails, iOS: darwinNotificationDetails, macOS: darwinNotificationDetails,
+      android: androidNotificationDetails, 
+      iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
     );
 
-    // 2. Planifier une notification pour chaque jour dans l'intervalle
-    // Nous utilisons un offset dans l'ID pour garantir l'unicité des notifications journalières
-    // pour cette tâche. Base ID = id * 1000.
     int baseId = id * 1000;
     int dayCount = 0;
     
-    // Loop jusqu'à la fin du jour de endDate
-    for (DateTime date = currentDay; date.isBefore(endDate.add(const Duration(hours: 1))); date = date.add(const Duration(days: 1))) {
-        // S'assurer que la planification ne dépasse pas la date de fin
-        if (date.isAfter(endDate.add(const Duration(minutes: 1)))) break;
-
-        final tz.TZDateTime tzScheduledDate = tz.TZDateTime.from(date, tz.local);
-        
-        // ID unique pour chaque jour : baseId + jour (ex: 1000, 1001, 1002...)
+    // Planifier chaque jour jusqu'à la date de fin (incluse si l'heure correspond)
+    while (currentDay.isBefore(endDate.add(const Duration(minutes: 1)))) {
+        final tz.TZDateTime tzScheduledDate = tz.TZDateTime.from(currentDay, tz.local);
         int uniqueDayId = baseId + dayCount;
         
         try {
@@ -202,16 +275,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 tzScheduledDate,
                 notificationDetails,
                 androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-                payload: 'TaskID|$id', // Payload conserve l'ID original de la tâche
+                payload: 'TaskID|$id',
             );
             dayCount++;
         } catch (e) {
-            print('Error scheduling daily notification for task $id on $date: $e');
+            debugPrint('Error scheduling daily notification for task $id on $currentDay: $e');
         }
         
-        // Limite de sécurité pour éviter de planifier trop de notifications.
-        if (dayCount > 366) break; 
+        currentDay = currentDay.add(const Duration(days: 1));
+        if (dayCount > 365) break; // Limite de sécurité (1 an)
     }
+    debugPrint('$dayCount notifications journalières planifiées pour la tâche $id');
   }
 
   void _addTask() async {
@@ -224,11 +298,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final newTaskId = await DbHelper.insert(titre, description, dateForDb, heureForDb, dateFinForDb); // Mise à jour de l'appel
 
     if (newTaskId > 0) {
-      // Si la tâche a une durée de plus d'un jour, on utilise la planification quotidienne manuelle.
+      // Déterminer s'il s'agit d'une tâche à répétition journalière (plus d'un jour de différence)
       if (selectedEndDate.isAfter(selectedDate.add(const Duration(days: 1))) || selectedDate.day != selectedEndDate.day) {
           _scheduleDailyNotificationsBetweenDates(newTaskId, "Rappel quotidien de tâche: $titre", description, selectedDate, selectedEndDate);
       } else if (selectedDate.isAfter(DateTime.now())) {
-          // Sinon (tâche d'une seule journée ou si date de fin passée/incohérente), planification simple.
+          // Sinon, planification d'une notification unique
           _scheduleNotificationSingle(newTaskId, "Rappel de tâche: $titre", description, selectedDate);
       }
     }
@@ -265,10 +339,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
           if (taskEndDate.isAfter(taskDate.add(const Duration(days: 1))) || taskDate.day != taskEndDate.day) {
             // Reprendre la planification quotidienne
-            _scheduleDailyNotificationsBetweenDates(id, "Rappel quotidien: \${task['titre']}", task['description'], taskDate, taskEndDate);
+            _scheduleDailyNotificationsBetweenDates(id, "Rappel quotidien: ${task['titre']}", task['description'], taskDate, taskEndDate);
           } else if (taskDate.isAfter(DateTime.now())) {
             // Reprendre la planification simple
-            _scheduleNotificationSingle(id, "Rappel: \${task['titre']}", task['description'], taskDate);
+            _scheduleNotificationSingle(id, "Rappel: ${task['titre']}", task['description'], taskDate);
           }
         } catch (e) {
           print("Error parsing date for rescheduling: $e");
@@ -308,7 +382,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _refreshTasks();
   }
 
-  // Ancienne logique de planification simple, conservée pour les tâches non récurrentes
+  // Logique de planification simple
   Future<void> _scheduleNotificationSingle(int id, String title, String body, DateTime scheduledDateTime) async {
     if (scheduledDateTime.isBefore(DateTime.now())) {
       print("Notification time $scheduledDateTime is in the past. Not scheduling.");
@@ -320,14 +394,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       channelDescription: 'your_channel_description',
       importance: Importance.max, priority: Priority.high, ticker: 'ticker',
     );
-    const DarwinNotificationDetails darwinNotificationDetails = DarwinNotificationDetails(
-      presentAlert: true, presentBadge: true, presentSound: true,
-    );
     const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidNotificationDetails, iOS: darwinNotificationDetails, macOS: darwinNotificationDetails,
+      android: androidNotificationDetails, 
+      iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
     );
     try {
-      // Planification simple utilise l'ID principal
       await flutterLocalNotificationsPlugin.zonedSchedule(
         id, title, body, tzScheduledDate, notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -339,11 +410,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   Future<void> _cancelNotification(int id) async {
-    // Annuler la notification simple (qui utilise l'ID principal)
+    // Annuler la notification simple (ID principal)
     await flutterLocalNotificationsPlugin.cancel(id); 
     
-    // Annuler toutes les notifications quotidiennes planifiées manuellement (jusqu'à 367 jours max)
-    // C'est une méthode de contournement nécessaire pour annuler la boucle manuelle.
+    // Annuler toutes les notifications quotidiennes planifiées (jusqu'à 367 jours max)
     int baseId = id * 1000;
     for (int i = 0; i < 367; i++) {
       await flutterLocalNotificationsPlugin.cancel(baseId + i);
@@ -431,8 +501,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
     } catch (_) {}
 
-    // End new date parsing
-
     // Calculate Duration
     String durationText = "Non spécifiée";
     if (taskEndDate != null) {
@@ -502,8 +570,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
           content: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 _buildDetailRow(context: dialogContext, icon: Icons.title_rounded, title: "Titre:", value: task['titre'].toString()),
                 const Divider(height: 16, thickness: 0.5),
@@ -572,13 +639,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     } catch (e) {
       selectedDate = DateTime.now();
     }
-    // New: Initialize selectedEndDate
     try {
       selectedEndDate = DateFormat('yyyy-MM-dd HH:mm').parse(task['date_fin']);
     } catch (e) {
       selectedEndDate = selectedDate.add(const Duration(hours: 1));
     }
-    // End new initialization
 
     return showModalBottomSheet(
       context: context,
@@ -610,7 +675,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   child: StatefulBuilder(
                     builder: (BuildContext context, StateSetter setStateDialog) {
                       DateTime dialogSelectedDate = selectedDate;
-                      DateTime dialogSelectedEndDate = selectedEndDate; // New line
+                      DateTime dialogSelectedEndDate = selectedEndDate;
 
                       return Column(
                         children: [
@@ -663,7 +728,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             style: const TextStyle(decoration: TextDecoration.none),
                           ),
                           const SizedBox(height: 12),
-                          // Nouveau champ Date de fin prévue
+                          // Champ Date de fin prévue
                           DateTimeFormField(
                             decoration: InputDecoration(
                               label: const Text("Date de fin prévue"),
@@ -695,7 +760,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   onPressed: _isLoading ? null : () async {
                                     if (_formkey.currentState!.validate()) {
                                       setState(() => _isLoading = true);
-                                      _updateTaskInfo(task['id'], _titreController.text, _descriptionController.text, dialogSelectedDate, dialogSelectedEndDate); // Mise à jour de l'appel
+                                      _updateTaskInfo(task['id'], _titreController.text, _descriptionController.text, dialogSelectedDate, dialogSelectedEndDate);
                                       Navigator.of(context).pop();
                                       _titreController.clear();
                                       _descriptionController.clear();
@@ -712,7 +777,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   label: const Text("Sauver", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
                                 ),
                               ),
-                              Expanded( // Suppression de SizedBox(width: 10)
+                              Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: () => Navigator.of(context).pop(),
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
@@ -740,7 +805,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _titreController.clear();
     _descriptionController.clear();
     selectedDate = DateTime.now();
-    selectedEndDate = DateTime.now().add(const Duration(hours: 1)); // Ajout de l'initialisation de date_fin
+    selectedEndDate = DateTime.now().add(const Duration(hours: 1)); 
 
     return showModalBottomSheet(
       context: context,
@@ -750,7 +815,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       ),
       builder: (BuildContext context) {
         return Padding(
-          // Adjust padding for keyboard if necessary
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
             top: 16.0,
@@ -762,20 +826,18 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title equivalent from AlertDialog
                 const ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.task_alt_rounded, color: Colors.green),
                   title: Text("Création d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
                 ),
                 const SizedBox(height: 12),
-                // Content (Form) equivalent
                 Form(
                   key: _formkey,
                   child: StatefulBuilder(
                     builder: (BuildContext context, StateSetter setStateDialog) {
                       DateTime dialogSelectedDate = selectedDate;
-                      DateTime dialogSelectedEndDate = selectedEndDate; // New line
+                      DateTime dialogSelectedEndDate = selectedEndDate;
 
                       return Column(
                         children: [
@@ -826,7 +888,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             style: const TextStyle(decoration: TextDecoration.none),
                           ),
                           const SizedBox(height: 12),
-                          // Nouveau champ Date de fin prévue
+                          // Champ Date de fin prévue
                           DateTimeFormField(
                             decoration: InputDecoration(
                               label: const Text("Date de fin prévue"),
@@ -860,9 +922,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                       setState(() => _isLoading = true);
                                       setState(() {
                                         selectedDate = dialogSelectedDate;
-                                        selectedEndDate = dialogSelectedEndDate; // Mise à jour de l'état
+                                        selectedEndDate = dialogSelectedEndDate;
                                       });
-                                      _addTask(); // Appel à _addTask qui utilise maintenant selectedEndDate
+                                      _addTask();
                                       Navigator.of(context).pop();
                                       _titreController.clear();
                                       _descriptionController.clear();
@@ -879,7 +941,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   label: const Text("Valider", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
                                 ),
                               ),
-                              Expanded( // Suppression de SizedBox(width: 10)
+                              Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: () => Navigator.of(context).pop(),
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12)),
@@ -889,7 +951,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16), // Add bottom padding for a clean look
+                          const SizedBox(height: 16),
                         ],
                       );
                     }
@@ -932,14 +994,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16)), // Reduced horizontal padding
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
                   icon: const Icon(Icons.restart_alt, color: Colors.white),
                   label: const Text("Confirmer", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16)), // Reduced horizontal padding
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
                   icon: const Icon(Icons.cancel_outlined, color: Colors.white),
                   label: const Text("Annuler", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.none)),
                 ),
@@ -1041,7 +1103,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   ],
                 ),
               ),
-              PopupMenuItem<String>( // Ajout du nouvel item "Paramètres"
+              PopupMenuItem<String>(
                 value: 'backup',
                 onTap: () async {
                   Future.delayed(const Duration(milliseconds: 0), () async {
@@ -1049,7 +1111,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       context,
                       _slideTransition(const BackupDbPage()),
                     );
-                    // Si le résultat est 'true', cela signifie qu'une restauration a été effectuée
                     if (result == true) {
                       _refreshTasks();
                     }
@@ -1057,14 +1118,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 },
                 child: const Row(
                   children: [
-                    Icon(Icons.restart_alt_sharp, color: Colors.blueGrey), // Ou une autre couleur
+                    Icon(Icons.restart_alt_sharp, color: Colors.blueGrey),
                     SizedBox(width: 8),
                     Text("Sauvegarde/Restauration", style: TextStyle(decoration: TextDecoration.none)),
                   ],
                 ),
               ),
-
-              PopupMenuItem<String>( // Ajout du nouvel item "Paramètres"
+              PopupMenuItem<String>(
                 value: 'parametres',
                 onTap: () async {
                   Future.delayed(const Duration(milliseconds: 0), () async {
@@ -1076,7 +1136,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 },
                 child: const Row(
                   children: [
-                    Icon(Icons.settings_outlined, color: Colors.blueGrey), // Ou une autre couleur
+                    Icon(Icons.settings_outlined, color: Colors.blueGrey),
                     SizedBox(width: 8),
                     Text("Paramètres", style: TextStyle(decoration: TextDecoration.none)),
                   ],
