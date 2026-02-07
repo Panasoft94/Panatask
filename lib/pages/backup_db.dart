@@ -13,21 +13,32 @@ class BackupDbPage extends StatefulWidget {
   State<BackupDbPage> createState() => _BackupDbPageState();
 }
 
-class _BackupDbPageState extends State<BackupDbPage> {
+class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderStateMixin {
   String _lastBackupPath = 'Aucune sauvegarde récente connue.';
   bool _isSaving = false;
   bool _isRestoring = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _checkBackupStatus();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
+    _requestStoragePermission(); // Demande d'autorisation au démarrage
   }
 
-  Future<void> _checkBackupStatus() async {
-    // This function is limited because we cannot easily check the last external backup
-    // without storing it somewhere. We will keep it simple for now.
-    // The user will see the path of the last successful backup if verification is included.
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<bool> _requestStoragePermission() async {
@@ -35,53 +46,38 @@ class _BackupDbPageState extends State<BackupDbPage> {
       PermissionStatus status = await Permission.storage.status;
 
       if (status.isPermanentlyDenied) {
-        // Permission refusée de façon permanente, demander à l'utilisateur d'ouvrir les paramètres.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Permission de stockage requise. Veuillez l\'autoriser dans les paramètres de l\'application.'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Ouvrir les paramètres',
-              onPressed: () {
-                openAppSettings();
-              },
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Permission de stockage requise. Veuillez l\'autoriser dans les paramètres de l\'application.'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: 'Ouvrir les paramètres',
+                onPressed: () {
+                  openAppSettings();
+                },
+              ),
             ),
-          ),
-        );
+          );
+        }
         return false;
       }
 
       if (!status.isGranted) {
-        // Demander la permission
         status = await Permission.storage.request();
       }
 
       if (status.isGranted) {
         return true;
-      } else if (status.isPermanentlyDenied) {
-        // La permission est devenue définitivement refusée suite à la requête.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Permission de stockage requise. Veuillez l\'autoriser dans les paramètres de l\'application.'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Ouvrir les paramètres',
-              onPressed: () {
-                openAppSettings();
-              },
-            ),
-          ),
-        );
-        return false;
       } else {
-        // Permission refusée par l'utilisateur (mais pas définitivement)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission de stockage refusée.'), backgroundColor: Colors.red),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission de stockage refusée.'), backgroundColor: Colors.red),
+          );
+        }
         return false;
       }
     }
-    // Pour les plateformes non Android/iOS, on considère la permission comme acquise.
     return true;
   }
 
@@ -102,24 +98,30 @@ class _BackupDbPageState extends State<BackupDbPage> {
         setState(() {
           _lastBackupPath = 'Sauvegarde réussie : ${p.basename(filePath)}';
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ Base de données sauvegardée dans ${filePath}.'), backgroundColor: Colors.green),
-        );
+        if(mounted){
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✅ Base de données sauvegardée dans ${filePath}.'), backgroundColor: Colors.green),
+          );
+        }
       } else {
         setState(() {
           _lastBackupPath = 'Échec de la sauvegarde.';
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Échec de la sauvegarde de la base de données.'), backgroundColor: Colors.red),
-        );
+        if(mounted){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Échec de la sauvegarde de la base de données.'), backgroundColor: Colors.red),
+          );
+        }
       }
     } catch (e) {
       setState(() {
         _lastBackupPath = 'Erreur lors de la sauvegarde.';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
-      );
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() {
         _isSaving = false;
@@ -169,25 +171,33 @@ class _BackupDbPageState extends State<BackupDbPage> {
         if (confirmed == true) {
           bool success = await DbHelper.restoreDatabaseFromFile(backupFilePath);
           if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('✅ Restauration réussie. Redémarrage des tâches.'), backgroundColor: Colors.green),
-            );
-            if (mounted) Navigator.pop(context, true);
+            if(mounted){
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('✅ Restauration réussie. Redémarrage des tâches.'), backgroundColor: Colors.green),
+              );
+              Navigator.pop(context, true);
+            }
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('❌ Échec de la restauration (fichier invalide ou erreur).'), backgroundColor: Colors.red),
-            );
+            if(mounted){
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('❌ Échec de la restauration (fichier invalide ou erreur).'), backgroundColor: Colors.red),
+              );
+            }
           }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Restauration annulée.'), backgroundColor: Colors.grey),
-        );
+         if(mounted){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Restauration annulée.'), backgroundColor: Colors.grey),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la restauration: ${e.toString()}'), backgroundColor: Colors.red),
-      );
+       if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la restauration: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() {
         _isRestoring = false;
@@ -203,85 +213,50 @@ class _BackupDbPageState extends State<BackupDbPage> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
           children: <Widget>[
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Sauvegarder la base de données",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      "Ceci copie votre base de données locale (.db) vers le dossier de Téléchargement de votre appareil.",
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _isSaving ? null : _backupDatabase,
-                      icon: _isSaving
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                          : const Icon(Icons.cloud_upload_rounded, color: Colors.white),
-                      label: Text(_isSaving ? "Sauvegarde en cours..." : "Sauvegarder dans Téléchargements", style: const TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: ListTile(
+                leading: const Icon(Icons.cloud_upload_rounded, color: Colors.green, size: 40),
+                title: const Text("Sauvegarder", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("Copie la base de données vers le dossier de téléchargement."),
+                trailing: _isSaving
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: _backupDatabase,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        child: const Text("Lancer", style: TextStyle(color: Colors.white)),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(_lastBackupPath, style: TextStyle(fontSize: 12, color: _isSaving ? Colors.orange : Colors.blueGrey)),
-                  ],
-                ),
               ),
             ),
-
-            const SizedBox(height: 30),
-
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Text(
+                _lastBackupPath,
+                style: TextStyle(fontSize: 12, color: _isSaving ? Colors.orange : Colors.blueGrey),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const Divider(height: 30),
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Restaurer la base de données",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      "Sélectionnez un fichier de sauvegarde (.db) depuis votre appareil. Les données actuelles seront remplacées.",
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _isRestoring ? null : _restoreDatabase,
-                      icon: _isRestoring
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                          : const Icon(Icons.folder_open_rounded, color: Colors.white),
-                      label: Text(_isRestoring ? "Restauration en cours..." : "Sélectionner le fichier de restauration", style: const TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: ListTile(
+                leading: const Icon(Icons.folder_open_rounded, color: Colors.orange, size: 40),
+                title: const Text("Restaurer", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("Restaure la base de données à partir d\'un fichier .db."),
+                trailing: _isRestoring
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: _restoreDatabase,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        child: const Text("Choisir", style: TextStyle(color: Colors.white)),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (Navigator.canPop(context))
-                      const Text('Après la restauration, vous serez redirigé vers l\'écran principal pour recharger les données.', style: TextStyle(fontSize: 12, color: Colors.red)),
-                  ],
-                ),
               ),
             ),
           ],
