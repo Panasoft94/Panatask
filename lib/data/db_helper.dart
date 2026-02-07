@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite/sqlite_api.dart';
 import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DbHelper{
 
@@ -88,65 +88,87 @@ static Future<void>resetDatabase() async{
     await db.execute('CREATE TABLE taches(id INTEGER PRIMARY KEY AUTOINCREMENT, titre TEXT, description TEXT, date TEXT, heure TEXT, date_fin TEXT, creation TEXT, modification TEXT, status INTEGER)');
 }
 
-// --- Fonctions de Sauvegarde et Restauration mises à jour pour les chemins externes ---
+  // --- Fonctions de Sauvegarde et Restauration mises à jour ---
 
-static Future<String?> getDbPath() async {
-  String databasesPath = await getDatabasesPath();
-  return join(databasesPath, 'panatask.db');
-}
-
-static Future<String?> backupDatabaseToFile() async {
-  try {
-    String? dbPath = await getDbPath();
-    if (dbPath == null) return null;
-
-    // Tente d'utiliser le dossier de téléchargement, sinon utilise les documents de l'application
-    Directory? externalDir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
-    
-    if (externalDir == null) return null;
-
-    String timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    String backupFileName = 'panatask_backup_$timestamp.db';
-    String backupFilePath = join(externalDir.path, backupFileName);
-
-    File dbFile = File(dbPath);
-    if (await dbFile.exists()) {
-      await dbFile.copy(backupFilePath);
-      return backupFilePath; // Retourne le chemin de la sauvegarde
+  //sauvegarde de la base de données
+  static Future<String?> backupDatabaseToFile() async {
+    // NOTE: This logic now includes its own permission request.
+    var status = await Permission.manageExternalStorage.status;
+    if (!status.isGranted) {
+      status = await Permission.manageExternalStorage.request();
+      if (!status.isGranted) {
+        print("Storage permission was not granted.");
+        return null;
+      }
     }
-    return null;
-  } catch (e) {
-    print("Erreur backup: $e");
-    return null;
-  }
-}
+    try {
+      final dbPath = await getDatabasesPath();
+      final sourceFile = File(join(dbPath, 'panatask.db'));
 
-static Future<bool> restoreDatabaseFromFile(String backupFilePath) async {
-  try {
-    String? dbPath = await getDbPath();
-    if (dbPath == null) return false;
-
-    File backupFile = File(backupFilePath);
-    if (await backupFile.exists()) {
-      // 1. Fermer la base actuelle avant de l'écraser
-      if (_database != null) {
-        await _database!.close();
-        _database = null;
+      if (!await sourceFile.exists()) {
+        print("Source DB file not found.");
+        return null;
       }
       
-      // 2. Écraser la base de données principale avec le fichier sélectionné
-      await backupFile.copy(dbPath);
+      final backupDir = Directory("/storage/emulated/0/Download/PanaTaskBackups");
+
+      if (!await backupDir.exists()) {
+        await backupDir.create(recursive: true);
+      }
       
-      // 3. Réouvrir la base de données (pour la prochaine lecture)
-      await geDatabse(); 
+      final backupFilePath = join(backupDir.path, "panatask-backup-${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.db");
 
-      return true;
+      final backedUpFile = await sourceFile.copy(backupFilePath);
+      print("Database backed up to: ${backedUpFile.path}");
+      return backedUpFile.path;
+
+    } catch (e) {
+      print("Error during backup: $e");
+      return null;
     }
-    return false;
-  } catch (e) {
-    print("Erreur restore: $e");
-    return false;
   }
-}
 
+  //restauration de la base de données
+  static Future<bool> restoreDatabaseFromFile(String backupFilePath) async {
+    // NOTE: This logic now includes its own permission request.
+    var status = await Permission.manageExternalStorage.status;
+    if (!status.isGranted) {
+      status = await Permission.manageExternalStorage.request();
+      if (!status.isGranted) {
+         print("Storage permission was not granted.");
+        return false;
+      }
+    }
+    try{
+      final dbPath = await getDatabasesPath();
+      final dbFile = File(join(dbPath, 'panatask.db'));
+      final backupFile = File(backupFilePath);
+
+      if (await backupFile.exists()) {
+        if (_database != null && _database!.isOpen) {
+            await _database!.close();
+        }
+        _database = null;
+        
+        await backupFile.copy(dbFile.path);
+        
+        await geDatabse(); // Re-initialize the database connection
+        
+        print("Database restored successfully from: $backupFilePath");
+        return true;
+      } else {
+        print("Source DB file for restore not found: ${backupFile.path}");
+        return false;
+      }
+    }
+    catch (e){
+      print("Error during restore: $e");
+      return false;
+    }
+  }
+
+  static Future<String?> getDbPath() async {
+    String databasesPath = await getDatabasesPath();
+    return join(databasesPath, 'panatask.db');
+  }
 }

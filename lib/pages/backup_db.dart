@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:panatask/data/db_helper.dart';
@@ -32,7 +31,9 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
       curve: Curves.easeInOut,
     );
     _animationController.forward();
-    _requestStoragePermission(); // Demande d'autorisation au démarrage
+
+    // Demande automatique de permission dès l’ouverture de la page
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermission());
   }
 
   @override
@@ -41,44 +42,57 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
     super.dispose();
   }
 
-  Future<bool> _requestStoragePermission() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      PermissionStatus status = await Permission.storage.status;
+  Future<bool> _requestPermission() async {
+    if (Platform.isAndroid) {
+      // Android 11+ (API 30 et plus) → manageExternalStorage
+      final manageStatus = await Permission.manageExternalStorage.status;
+      if (manageStatus.isGranted) return true;
 
-      if (status.isPermanentlyDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Permission de stockage requise. Veuillez l\'autoriser dans les paramètres de l\'application.'),
-              backgroundColor: Colors.red,
-              action: SnackBarAction(
-                label: 'Ouvrir les paramètres',
-                onPressed: () {
-                  openAppSettings();
-                },
-              ),
-            ),
-          );
-        }
+      final manageResult = await Permission.manageExternalStorage.request();
+      if (manageResult.isGranted) return true;
+
+      if (await Permission.manageExternalStorage.isPermanentlyDenied) {
+        _showSettingsSnackBar();
         return false;
       }
 
-      if (!status.isGranted) {
-        status = await Permission.storage.request();
-      }
+      // Android < 11 → storage
+      final storageStatus = await Permission.storage.status;
+      if (storageStatus.isGranted) return true;
 
-      if (status.isGranted) {
-        return true;
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission de stockage refusée.'), backgroundColor: Colors.red),
-          );
-        }
+      final storageResult = await Permission.storage.request();
+      if (storageResult.isGranted) return true;
+
+      if (await Permission.storage.isPermanentlyDenied) {
+        _showSettingsSnackBar();
         return false;
       }
+
+      // Refus simple
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission de stockage refusée.'), backgroundColor: Colors.red),
+        );
+      }
+      return false;
     }
+    // iOS ou autres plateformes
     return true;
+  }
+
+  void _showSettingsSnackBar() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Permission de stockage requise. Veuillez l’activer dans les paramètres.'),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Paramètres',
+            onPressed: () => openAppSettings(),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _backupDatabase() async {
@@ -88,7 +102,10 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
     });
 
     try {
-      if (!(await _requestStoragePermission())) {
+      if (!(await _requestPermission())) {
+        setState(() {
+          _lastBackupPath = 'Permission refusée.';
+        });
         return;
       }
 
@@ -98,16 +115,16 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
         setState(() {
           _lastBackupPath = 'Sauvegarde réussie : ${p.basename(filePath)}';
         });
-        if(mounted){
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✅ Base de données sauvegardée dans ${filePath}.'), backgroundColor: Colors.green),
+            SnackBar(content: Text('✅ Base de données sauvegardée dans $filePath.'), backgroundColor: Colors.green),
           );
         }
       } else {
         setState(() {
           _lastBackupPath = 'Échec de la sauvegarde.';
         });
-        if(mounted){
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('❌ Échec de la sauvegarde de la base de données.'), backgroundColor: Colors.red),
           );
@@ -117,7 +134,7 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
       setState(() {
         _lastBackupPath = 'Erreur lors de la sauvegarde.';
       });
-      if(mounted){
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
         );
@@ -135,25 +152,40 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
     });
 
     try {
-      if (!(await _requestStoragePermission())) {
+      if (!(await _requestPermission())) {
         return;
       }
 
+      // Autoriser tous les fichiers pour contourner la limitation de file_picker
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['db'],
+        type: FileType.any,
         allowMultiple: false,
       );
 
       if (result != null && result.files.single.path != null) {
         String backupFilePath = result.files.single.path!;
 
+        // Vérification manuelle de l’extension
+        if (!backupFilePath.toLowerCase().endsWith(".db")) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('❌ Fichier invalide. Veuillez choisir un fichier .db.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
         bool? confirmed = await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
               title: const Text('Confirmation de la restauration'),
-              content: Text('Voulez-vous vraiment restaurer la base de données à partir de :\n\n${p.basename(backupFilePath)} ?\n\nCeci écrasera les données actuelles.'),
+              content: Text(
+                'Voulez-vous vraiment restaurer la base de données à partir de :\n\n${p.basename(backupFilePath)} ?\n\nCeci écrasera les données actuelles.',
+              ),
               actions: <Widget>[
                 TextButton(
                   child: const Text('Annuler'),
@@ -171,31 +203,43 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
         if (confirmed == true) {
           bool success = await DbHelper.restoreDatabaseFromFile(backupFilePath);
           if (success) {
-            if(mounted){
+            if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ Restauration réussie. Redémarrage des tâches.'), backgroundColor: Colors.green),
+                const SnackBar(
+                  content: Text('✅ Restauration réussie. Redémarrage des tâches.'),
+                  backgroundColor: Colors.green,
+                ),
               );
               Navigator.pop(context, true);
             }
           } else {
-            if(mounted){
+            if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('❌ Échec de la restauration (fichier invalide ou erreur).'), backgroundColor: Colors.red),
+                const SnackBar(
+                  content: Text('❌ Échec de la restauration (fichier invalide ou erreur).'),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
           }
         }
       } else {
-         if(mounted){
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Restauration annulée.'), backgroundColor: Colors.grey),
+            const SnackBar(
+              content: Text('Restauration annulée.'),
+              backgroundColor: Colors.grey,
+            ),
           );
         }
       }
     } catch (e) {
-       if(mounted){
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la restauration: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur lors de la restauration: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -208,17 +252,30 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sauvegarde et Restauration"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        appBar: AppBar(
+        elevation: 6,
+        toolbarHeight: 65,
+        backgroundColor: Colors.green,
+        title: const Text(
+          "Sauvegarde et Restauration",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 25,
+            color: Colors.white,
+            letterSpacing: 1.2
+          ),
+        ),
+        centerTitle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+        ),
       ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: <Widget>[
-            Card(
+        body: FadeTransition(
+            opacity: _fadeAnimation,
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: <Widget>[
+              Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: ListTile(
@@ -228,10 +285,10 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
                 trailing: _isSaving
                     ? const CircularProgressIndicator()
                     : ElevatedButton(
-                        onPressed: _backupDatabase,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        child: const Text("Lancer", style: TextStyle(color: Colors.white)),
-                      ),
+                  onPressed: _backupDatabase,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text("Lancer", style: TextStyle(color: Colors.white)),
+                ),
               ),
             ),
             Padding(
@@ -243,25 +300,25 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
               ),
             ),
             const Divider(height: 30),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                leading: const Icon(Icons.folder_open_rounded, color: Colors.orange, size: 40),
-                title: const Text("Restaurer", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Restaure la base de données à partir d\'un fichier .db."),
-                trailing: _isRestoring
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        onPressed: _restoreDatabase,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                        child: const Text("Choisir", style: TextStyle(color: Colors.white)),
-                      ),
-              ),
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    leading: const Icon(Icons.folder_open_rounded, color: Colors.orange, size: 40),
+                    title: const Text("Restaurer", style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text("Restaure la base de données à partir d'un fichier .db."),
+                    trailing: _isRestoring
+                        ? const CircularProgressIndicator()
+                        : ElevatedButton(
+                      onPressed: _restoreDatabase,
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                      child: const Text("Choisir", style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
         ),
-      ),
     );
   }
 }

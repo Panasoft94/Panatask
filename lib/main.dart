@@ -94,7 +94,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     // Demander les permissions au démarrage après que le widget soit entièrement construit
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestNotificationPermission();
-      _requestInitialStoragePermission();
     });
 
     _refreshTasks();
@@ -111,43 +110,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
     _animationController.forward();
   }
-  
-  // Nouvelle fonction pour demander la permission de stockage au lancement
-  Future<void> _requestInitialStoragePermission() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      PermissionStatus status = await Permission.storage.status;
-
-      if (status.isPermanentlyDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Permission de stockage requise pour la sauvegarde/restauration. Veuillez l\'autoriser dans les paramètres.'),
-              backgroundColor: Colors.red,
-              action: SnackBarAction(
-                label: 'Ouvrir les paramètres',
-                onPressed: () {
-                  openAppSettings();
-                },
-              ),
-            ),
-          );
-        }
-        return;
-      }
-
-      if (!status.isGranted) {
-        // Demander la permission
-        status = await Permission.storage.request();
-
-        if (!status.isGranted && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission de stockage refusée. La sauvegarde et la restauration pourraient échouer.'), backgroundColor: Colors.orange),
-          );
-        }
-      }
-    }
-  }
-
 
   Future<void> _requestNotificationPermission() async {
     // Vérifie et demande la permission de notification pour toutes les plateformes

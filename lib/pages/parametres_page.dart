@@ -57,9 +57,22 @@ class _ParametresPageState extends State<ParametresPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Paramètres de notification', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        elevation: 6,
+        toolbarHeight: 65,
         backgroundColor: Colors.green,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          "Paramètres",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 25,
+            color: Colors.white,
+            letterSpacing: 1.2
+          ),
+        ),
+        centerTitle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(8.0),
