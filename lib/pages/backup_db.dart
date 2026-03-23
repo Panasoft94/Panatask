@@ -252,73 +252,171 @@ class _BackupDbPageState extends State<BackupDbPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-        elevation: 6,
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
         toolbarHeight: 65,
+        elevation: 1,
         backgroundColor: Colors.green,
-        title: const Text(
-          "Sauvegarde et Restauration",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 25,
-            color: Colors.white,
-            letterSpacing: 1.2
+        foregroundColor: Colors.white,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, size: 20),
+              onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
           ),
         ),
+        title: const Text(
+          "Sauvegarde & Restauration",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoSummary(),
+              const SizedBox(height: 32),
+              const Text(
+                "Options disponibles",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+              ),
+              const SizedBox(height: 16),
+              _buildActionCard(
+                title: "Sauvegarder",
+                description: "Crée un point de sauvegarde local de votre base de données actuelle (format .db).",
+                icon: Icons.backup_rounded,
+                color: Colors.green,
+                isLoading: _isSaving,
+                onTap: _backupDatabase,
+              ),
+              const SizedBox(height: 16),
+              _buildActionCard(
+                title: "Restaurer",
+                description: "Importez un fichier de sauvegarde (.db) pour récupérer vos anciennes données.",
+                icon: Icons.settings_backup_restore_rounded,
+                color: Colors.blue,
+                isLoading: _isRestoring,
+                onTap: _restoreDatabase,
+              ),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        "Attention : La restauration écrasera toutes vos données actuelles. Assurez-vous d'avoir une sauvegarde récente.",
+                        style: TextStyle(fontSize: 13, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-        body: FadeTransition(
-            opacity: _fadeAnimation,
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: <Widget>[
-              Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                leading: const Icon(Icons.cloud_upload_rounded, color: Colors.green, size: 40),
-                title: const Text("Sauvegarder", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Copie la base de données vers le dossier de téléchargement."),
-                trailing: _isSaving
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                  onPressed: _backupDatabase,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text("Lancer", style: TextStyle(color: Colors.white)),
+    );
+  }
+
+  Widget _buildInfoSummary() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.storage_rounded, color: Colors.green, size: 40),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            "État du système",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _lastBackupPath,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required bool isLoading,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: isLoading ? null : onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade100),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                child: isLoading
+                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: color))
+                    : Icon(icon, color: color, size: 28),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text(description, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                  ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Text(
-                _lastBackupPath,
-                style: TextStyle(fontSize: 12, color: _isSaving ? Colors.orange : Colors.blueGrey),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const Divider(height: 30),
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
-                    leading: const Icon(Icons.folder_open_rounded, color: Colors.orange, size: 40),
-                    title: const Text("Restaurer", style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: const Text("Restaure la base de données à partir d'un fichier .db."),
-                    trailing: _isRestoring
-                        ? const CircularProgressIndicator()
-                        : ElevatedButton(
-                      onPressed: _restoreDatabase,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                      child: const Text("Choisir", style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+            ],
+          ),
         ),
+      ),
     );
   }
 }

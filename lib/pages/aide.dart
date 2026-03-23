@@ -92,126 +92,194 @@ class _AidePageState extends State<AidePage> {
     );
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        elevation: 6,
         toolbarHeight: 65,
+        elevation: 1,
         backgroundColor: Colors.green,
-        title: const Text(
-          "Aide & commentaire ",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 25,
-            color: Colors.white,
-            letterSpacing: 1.2
+        foregroundColor: Colors.white,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, size: 20),
+              onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
           ),
         ),
-        centerTitle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+        title: const Text(
+          "Aide & Feedback",
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
       ),
-      body: Center(
-        child: Card(
-          elevation: 4,
-          margin: const EdgeInsets.all(12),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    children: [
-                      ...aideItems.map((item) => Column(
-                        children: [
-                          ListTile(
-                            leading: Icon(item["icon"] as IconData, color: item["color"] as Color),
-                            title: Text(item["text"] as String),
-                          ),
-                          const Divider(),
-                        ],
-                      )),
-                      const SizedBox(height: 12),
-                      Form(
-                        key: _formkey,
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              controller: _nomController,
-                              validator: (value) => value == null || value.isEmpty ? "Nom requis" : null,
-                              decoration: _inputDecoration.copyWith(
-                                labelText: "Nom de la famille",
-                                prefixIcon: const Icon(Icons.person),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _prenomController,
-                              validator: (value) => value == null || value.isEmpty ? "Prénom requis" : null,
-                              decoration: _inputDecoration.copyWith(
-                                labelText: "Prénom",
-                                prefixIcon: const Icon(Icons.person_outline),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _emailController,
-                              validator: (value) => value == null || !value.contains("@") ? "Email valide requis" : null,
-                              decoration: _inputDecoration.copyWith(
-                                labelText: "Adresse E-mail",
-                                prefixIcon: const Icon(Icons.email),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _commentaireController,
-                              validator: (value) => value == null || value.isEmpty ? "Commentaire requis" : null,
-                              maxLines: 4,
-                              decoration: _inputDecoration.copyWith(
-                                labelText: "Contenu du commentaire",
-                                prefixIcon: const Icon(Icons.comment),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              child: _isLoading
-                                  ? const CircularProgressIndicator()
-                                  : SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.send,color: Colors.white,),
-                                  label: const Text("Envoyer", style: TextStyle(fontSize: 18,color: Colors.white)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                  ),
-                                  onPressed: () async {
-                                    if (_formkey.currentState!.validate()) {
-                                      setState(() => _isLoading = true);
-                                      await _sendEmail();
-                                      setState(() => _isLoading = false);
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Guide d'utilisation",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+            ),
+            const SizedBox(height: 16),
+            ...aideItems.map((item) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: (item["color"] as Color).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(item["icon"] as IconData, color: item["color"] as Color, size: 20),
+                    ),
+                    title: Text(item["text"] as String, style: const TextStyle(fontSize: 14)),
+                  ),
+                )),
+            const SizedBox(height: 32),
+            const Text(
+              "Envoyez-nous un commentaire",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: Form(
+                key: _formkey,
+                child: Column(
+                  children: [
+                    _buildTextField(
+                      controller: _nomController,
+                      label: "Nom",
+                      icon: Icons.person_rounded,
+                      validator: (value) => value == null || value.isEmpty ? "Nom requis" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _prenomController,
+                      label: "Prénom",
+                      icon: Icons.person_outline_rounded,
+                      validator: (value) => value == null || value.isEmpty ? "Prénom requis" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _emailController,
+                      label: "Adresse E-mail",
+                      icon: Icons.email_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) => value == null || !value.contains("@") ? "Email valide requis" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _commentaireController,
+                      label: "Votre message",
+                      icon: Icons.chat_bubble_rounded,
+                      maxLines: 4,
+                      validator: (value) => value == null || value.isEmpty ? "Commentaire requis" : null,
+                    ),
+                    const SizedBox(height: 24),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.green)
+                          : SizedBox(
+                              width: double.infinity,
+                              height: 55,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.send_rounded, color: Colors.white),
+                                label: const Text("Envoyer le feedback",
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                ),
+                                onPressed: () async {
+                                  if (_formkey.currentState!.validate()) {
+                                    setState(() => _isLoading = true);
+                                    await _sendEmail();
+                                    setState(() => _isLoading = false);
+                                    if (mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
-                                          content: Text("Commentaire envoyé avec succès!", style: TextStyle(color: Colors.white)),
+                                          content: Text("🚀 Merci pour votre retour !"),
                                           backgroundColor: Colors.green,
                                           behavior: SnackBarBehavior.floating,
                                         ),
                                       );
                                     }
-                                  },
-                                ),
+                                  }
+                                },
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 20),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.green.shade400, size: 22),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.green.shade400, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.red.shade200),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }

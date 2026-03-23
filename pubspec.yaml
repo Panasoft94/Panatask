@@ -46,10 +46,10 @@ dependencies:
   flutter_local_notifications: ^19.4.2
   flutter_local_notifications_platform_interface: ^9.1.0
   timezone: ^0.10.1
-  flutter_native_timezone: ^2.0.0 # Added this line
   app_settings: ^5.1.1
   file_picker: ^8.1.7 # Added for backup/restore
   permission_handler: ^11.3.1 # Added for storage permissions
+  flutter_timezone: ^5.0.2
 
 
 dev_dependencies:
