@@ -36,6 +36,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _filteredTasks = [];
   final _searchController = TextEditingController();
   late AnimationController _animationController;
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -577,17 +578,53 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25.0))),
+      backgroundColor: Colors.transparent, // Pour permettre l'arrière-plan arrondi sans bordures blanches
       builder: (BuildContext context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 16.0, left: 16.0, right: 16.0),
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30.0)),
+          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 12.0, left: 24.0, right: 24.0),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.edit_note_rounded, color: Colors.orange), title: Text("Édition d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none))),
-                const SizedBox(height: 12),
+                // Petite barre "drag" au sommet
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // En-tête amélioré
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
+                          child: const Icon(Icons.edit_note_rounded, color: Colors.green, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text("Modifier la tâche", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87, decoration: TextDecoration.none)),
+                      ],
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: Colors.grey.shade500),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(backgroundColor: Colors.grey.shade100),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
                 Form(
                   key: _formkey,
                   child: StatefulBuilder(builder: (BuildContext context, StateSetter setStateDialog) {
@@ -596,30 +633,96 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     String dialogPriority = _selectedPriority;
                     return Column(
                       children: [
-                        TextFormField(controller: _titreController, maxLines: 3, validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null, decoration: InputDecoration(labelText: "Titre de la tâche", prefixIcon: const Icon(Icons.title_rounded), filled: true, contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30))), style: const TextStyle(decoration: TextDecoration.none)),
-                        const SizedBox(height: 12),
-                        TextFormField(controller: _descriptionController, minLines: 4, maxLines: 6, validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null, decoration: InputDecoration(labelText: "Description de la tâche", hintText: "Décris la tâche à accomplir", prefixIcon: const Icon(Icons.description_rounded), filled: true, contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30))), style: const TextStyle(decoration: TextDecoration.none)),
-                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _titreController, 
+                          maxLines: 2, 
+                          validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null, 
+                          decoration: InputDecoration(
+                            labelText: "Titre de la tâche", 
+                            prefixIcon: Icon(Icons.title_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), 
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          style: const TextStyle(decoration: TextDecoration.none, fontWeight: FontWeight.w500)
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController, 
+                          minLines: 3, 
+                          maxLines: 5, 
+                          validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null, 
+                          decoration: InputDecoration(
+                            labelText: "Description", 
+                            hintText: "Détails de la tâche...", 
+                            prefixIcon: Icon(Icons.description_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), 
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          style: const TextStyle(decoration: TextDecoration.none)
+                        ),
+                        const SizedBox(height: 16),
                         // Sélecteur de priorité
                         DropdownButtonFormField<String>(
                           value: dialogPriority,
-                          decoration: InputDecoration(labelText: "Priorité", prefixIcon: Icon(Icons.flag_rounded, color: dialogPriority == 'Haute' ? Colors.red : dialogPriority == 'Moyenne' ? Colors.orange : Colors.green), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                          decoration: InputDecoration(
+                            labelText: "Priorité", 
+                            prefixIcon: Icon(Icons.flag_rounded, color: dialogPriority == 'Haute' ? Colors.red : dialogPriority == 'Moyenne' ? Colors.orange : Colors.green), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ),
                           items: ['Haute', 'Moyenne', 'Basse'].map((priority) => DropdownMenuItem(value: priority, child: Text(priority))).toList(),
                           onChanged: (value) { if (value != null) { setStateDialog(() => dialogPriority = value); setState(() => _selectedPriority = value); } },
                         ),
-                        const SizedBox(height: 12),
-                        DateTimeFormField(decoration: InputDecoration(label: const Text("Date de rappel"), prefixIcon: const Icon(Icons.alarm_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), mode: DateTimeFieldPickerMode.dateAndTime, lastDate: DateTime.now().add(const Duration(days: 365)), initialPickerDateTime: dialogSelectedDate, onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedDate = value); setState(() => selectedDate = value); } }, style: const TextStyle(decoration: TextDecoration.none)),
-                        const SizedBox(height: 12),
-                        DateTimeFormField(decoration: InputDecoration(label: const Text("Date de fin prévue"), prefixIcon: const Icon(Icons.event_note_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), mode: DateTimeFieldPickerMode.dateAndTime, lastDate: DateTime.now().add(const Duration(days: 365)), initialPickerDateTime: dialogSelectedEndDate, onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedEndDate = value); setState(() => selectedEndDate = value); } }, style: const TextStyle(decoration: TextDecoration.none), validator: (value) { if (value != null && value.isBefore(dialogSelectedDate)) { return 'La date de fin ne peut pas être avant la date de rappel'; } return null; }),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: <Widget>[
-                            Expanded(child: ElevatedButton.icon(onPressed: _isLoading ? null : () async { if (_formkey.currentState!.validate()) { setState(() => _isLoading = true); _updateTaskInfo(task['id'], _titreController.text, _descriptionController.text, dialogSelectedDate, dialogSelectedEndDate, priority: dialogPriority); Navigator.of(context).pop(); _titreController.clear(); _descriptionController.clear(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✏️ Modification effectuée avec succès!", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)), behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true)); setState(() => _isLoading = false); } }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 14), textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), icon: const Icon(Icons.save_rounded, color: Colors.white, size: 22), label: const Text("SAUVER", style: TextStyle(color: Colors.white)))),
-                            const SizedBox(width: 10),
-                            Expanded(child: ElevatedButton.icon(onPressed: () => Navigator.of(context).pop(), style: ElevatedButton.styleFrom(backgroundColor: Colors.red, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 14), textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 22), label: const Text("ANNULER", style: TextStyle(color: Colors.white)))),
-                          ],
+                        const SizedBox(height: 16),
+                        DateTimeFormField(
+                          style: const TextStyle(color: Colors.black, decoration: TextDecoration.none),
+                          decoration: InputDecoration(
+                            labelText: "Date de rappel", 
+                            prefixIcon: Icon(Icons.alarm_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          mode: DateTimeFieldPickerMode.dateAndTime, 
+                          lastDate: DateTime.now().add(const Duration(days: 365)), 
+                          initialPickerDateTime: dialogSelectedDate, 
+                          onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedDate = value); setState(() => selectedDate = value); } }, 
                         ),
                         const SizedBox(height: 16),
+                        DateTimeFormField(
+                          style: const TextStyle(color: Colors.black, decoration: TextDecoration.none),
+                          decoration: InputDecoration(
+                            labelText: "Date de fin prévue", 
+                            prefixIcon: Icon(Icons.event_note_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          mode: DateTimeFieldPickerMode.dateAndTime, 
+                          lastDate: DateTime.now().add(const Duration(days: 365)), 
+                          initialPickerDateTime: dialogSelectedEndDate, 
+                          onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedEndDate = value); setState(() => selectedEndDate = value); } }, 
+                          validator: (value) { if (value != null && value.isBefore(dialogSelectedDate)) { return 'La date de fin ne peut être avant la date de rappel'; } return null; }
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: <Widget>[
+                            Expanded(child: ElevatedButton.icon(onPressed: () => Navigator.of(context).pop(), style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade100, foregroundColor: Colors.black87, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 18), textStyle: const TextStyle(fontWeight: FontWeight.bold)), icon: const Icon(Icons.cancel_outlined, size: 22), label: const Text("ANNULER"))),
+                            const SizedBox(width: 12),
+                            Expanded(child: ElevatedButton.icon(onPressed: _isLoading ? null : () async { if (_formkey.currentState!.validate()) { setState(() => _isLoading = true); _updateTaskInfo(task['id'], _titreController.text, _descriptionController.text, dialogSelectedDate, dialogSelectedEndDate, priority: dialogPriority); Navigator.of(context).pop(); _titreController.clear(); _descriptionController.clear(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✏️ Modification effectuée avec succès!", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)), behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true)); setState(() => _isLoading = false); } }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, elevation: 4, shadowColor: Colors.green.withOpacity(0.4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 18), textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), icon: const Icon(Icons.save_rounded, size: 22), label: const Text("SAUVEGARDER"))),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     );
                   }),
@@ -642,17 +745,53 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25.0))),
+      backgroundColor: Colors.transparent, // Pour permettre l'arrière-plan arrondi sans bordures blanches
       builder: (BuildContext context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 16.0, left: 16.0, right: 16.0),
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30.0)),
+          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 12.0, left: 24.0, right: 24.0),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.task_alt_rounded, color: Colors.green), title: Text("Création d'une tâche", style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.none))),
-                const SizedBox(height: 12),
+                // Petite barre "drag" au sommet
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // En-tête amélioré
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
+                          child: const Icon(Icons.add_task_rounded, color: Colors.green, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text("Création d'une tâche", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87, decoration: TextDecoration.none)),
+                      ],
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: Colors.grey.shade500),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(backgroundColor: Colors.grey.shade100),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
                 Form(
                   key: _formkey,
                   child: StatefulBuilder(builder: (BuildContext context, StateSetter setStateDialog) {
@@ -661,29 +800,97 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     String dialogPriority = _selectedPriority;
                     return Column(
                       children: [
-                        TextFormField(controller: _titreController, minLines: 2, maxLines: 3, validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null, decoration: InputDecoration(labelText: "Titre de la tâche", hintText: "Ex. : Finaliser l’interface utilisateur", prefixIcon: const Icon(Icons.title_rounded), filled: true, contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30))), style: const TextStyle(decoration: TextDecoration.none)),
-                        const SizedBox(height: 12),
-                        TextFormField(controller: _descriptionController, minLines: 4, maxLines: 6, validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null, decoration: InputDecoration(labelText: "Description de la tâche", hintText: "Détaille les étapes ou les objectifs de la tâche", prefixIcon: const Icon(Icons.description_rounded), filled: true, contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30))), style: const TextStyle(decoration: TextDecoration.none)),
-                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _titreController, 
+                          maxLines: 2, 
+                          validator: (value) => (value == null || value.trim().isEmpty) ? 'Le titre est requis' : null, 
+                          decoration: InputDecoration(
+                            labelText: "Titre de la tâche", 
+                            hintText: "Ex. : Finaliser l’interface...",
+                            prefixIcon: Icon(Icons.title_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), 
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          style: const TextStyle(decoration: TextDecoration.none, fontWeight: FontWeight.w500)
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController, 
+                          minLines: 3, 
+                          maxLines: 5, 
+                          validator: (value) => (value == null || value.trim().isEmpty) ? 'La description est requise' : null, 
+                          decoration: InputDecoration(
+                            labelText: "Description", 
+                            hintText: "Détails de la tâche...", 
+                            prefixIcon: Icon(Icons.description_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), 
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          style: const TextStyle(decoration: TextDecoration.none)
+                        ),
+                        const SizedBox(height: 16),
+                        // Sélecteur de priorité
                         DropdownButtonFormField<String>(
                           value: dialogPriority,
-                          decoration: InputDecoration(labelText: "Priorité", prefixIcon: Icon(Icons.flag_rounded, color: dialogPriority == 'Haute' ? Colors.red : dialogPriority == 'Moyenne' ? Colors.orange : Colors.green), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                          decoration: InputDecoration(
+                            labelText: "Priorité", 
+                            prefixIcon: Icon(Icons.flag_rounded, color: dialogPriority == 'Haute' ? Colors.red : dialogPriority == 'Moyenne' ? Colors.orange : Colors.green), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ),
                           items: ['Haute', 'Moyenne', 'Basse'].map((priority) => DropdownMenuItem(value: priority, child: Text(priority))).toList(),
                           onChanged: (value) { if (value != null) { setStateDialog(() => dialogPriority = value); setState(() => _selectedPriority = value); } },
                         ),
-                        const SizedBox(height: 12),
-                        DateTimeFormField(decoration: InputDecoration(label: const Text("Date de rappel"), prefixIcon: const Icon(Icons.alarm_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), mode: DateTimeFieldPickerMode.dateAndTime, lastDate: DateTime.now().add(const Duration(days: 365)), initialPickerDateTime: dialogSelectedDate, onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedDate = value); setState(() => selectedDate = value); } }, style: const TextStyle(decoration: TextDecoration.none)),
-                        const SizedBox(height: 12),
-                        DateTimeFormField(decoration: InputDecoration(label: const Text("Date de fin prévue"), prefixIcon: const Icon(Icons.event_note_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), mode: DateTimeFieldPickerMode.dateAndTime, lastDate: DateTime.now().add(const Duration(days: 365)), initialPickerDateTime: dialogSelectedEndDate, onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedEndDate = value); setState(() => selectedEndDate = value); } }, style: const TextStyle(decoration: TextDecoration.none), validator: (value) { if (value != null && value.isBefore(dialogSelectedDate)) { return 'La date de fin ne peut pas être avant la date de rappel'; } return null; }),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: <Widget>[
-                            Expanded(child: ElevatedButton.icon(onPressed: _isLoading ? null : () async { if (_formkey.currentState!.validate()) { setState(() => _isLoading = true); setState(() { selectedDate = dialogSelectedDate; selectedEndDate = dialogSelectedEndDate; }); _addTask(); Navigator.of(context).pop(); _titreController.clear(); _descriptionController.clear(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ La tâche a été ajoutée avec succès !", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)), behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true)); setState(() => _isLoading = false); } }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 14), textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), icon: const Icon(Icons.save_rounded, color: Colors.white, size: 22), label: const Text("VALIDER", style: TextStyle(color: Colors.white)))),
-                            const SizedBox(width: 10),
-                            Expanded(child: ElevatedButton.icon(onPressed: () => Navigator.of(context).pop(), style: ElevatedButton.styleFrom(backgroundColor: Colors.red, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 14), textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 22), label: const Text("ANNULER", style: TextStyle(color: Colors.white)))),
-                          ],
+                        const SizedBox(height: 16),
+                        DateTimeFormField(
+                          style: const TextStyle(color: Colors.black, decoration: TextDecoration.none),
+                          decoration: InputDecoration(
+                            labelText: "Date de rappel", 
+                            prefixIcon: Icon(Icons.alarm_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          mode: DateTimeFieldPickerMode.dateAndTime, 
+                          lastDate: DateTime.now().add(const Duration(days: 365)), 
+                          initialPickerDateTime: dialogSelectedDate, 
+                          onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedDate = value); setState(() => selectedDate = value); } }, 
                         ),
                         const SizedBox(height: 16),
+                        DateTimeFormField(
+                          style: const TextStyle(color: Colors.black, decoration: TextDecoration.none),
+                          decoration: InputDecoration(
+                            labelText: "Date de fin prévue", 
+                            prefixIcon: Icon(Icons.event_note_rounded, color: Colors.green.shade500), 
+                            filled: true, 
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.green.shade300, width: 2))
+                          ), 
+                          mode: DateTimeFieldPickerMode.dateAndTime, 
+                          lastDate: DateTime.now().add(const Duration(days: 365)), 
+                          initialPickerDateTime: dialogSelectedEndDate, 
+                          onChanged: (DateTime? value) { if (value != null) { setStateDialog(() => dialogSelectedEndDate = value); setState(() => selectedEndDate = value); } }, 
+                          validator: (value) { if (value != null && value.isBefore(dialogSelectedDate)) { return 'La date de fin ne peut être avant la date de rappel'; } return null; }
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: <Widget>[
+                            Expanded(child: ElevatedButton.icon(onPressed: () => Navigator.of(context).pop(), style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade100, foregroundColor: Colors.black87, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 18), textStyle: const TextStyle(fontWeight: FontWeight.bold)), icon: const Icon(Icons.cancel_outlined, size: 22), label: const Text("ANNULER"))),
+                            const SizedBox(width: 12),
+                            Expanded(child: ElevatedButton.icon(onPressed: _isLoading ? null : () async { if (_formkey.currentState!.validate()) { setState(() => _isLoading = true); setState(() { selectedDate = dialogSelectedDate; selectedEndDate = dialogSelectedEndDate; }); _addTask(); Navigator.of(context).pop(); _titreController.clear(); _descriptionController.clear(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ La tâche a été ajoutée avec succès !", style: TextStyle(color: Colors.white, decoration: TextDecoration.none)), behavior: SnackBarBehavior.floating, backgroundColor: Colors.green, showCloseIcon: true)); setState(() => _isLoading = false); } }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, elevation: 4, shadowColor: Colors.green.withOpacity(0.4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), padding: const EdgeInsets.symmetric(vertical: 18), textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), icon: const Icon(Icons.add_task_rounded, size: 22), label: const Text("CRÉER"))),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     );
                   }),
@@ -754,27 +961,60 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         elevation: 2,
         scrolledUnderElevation: 2,
         centerTitle: false,
-        title: const Text("Panatask", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+                cursorColor: Colors.white,
+                decoration: InputDecoration(
+                  hintText: "Rechercher...",
+                  hintStyle: TextStyle(color: Colors.white70, fontSize: 18),
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text("Panatask", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(onPressed: () => Navigator.push(context, _slideTransition(const AidePage())), icon: const Icon(Icons.help_outline_rounded, color: Colors.white)),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
-            offset: const Offset(0, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(value: 'reset', child: Row(children: [Icon(Icons.restart_alt, color: Colors.redAccent), SizedBox(width: 8), Text("Réinitialiser la base")])),
-              const PopupMenuItem<String>(value: 'backup', child: Row(children: [Icon(Icons.backup_rounded, color: Colors.blueGrey), SizedBox(width: 8), Text("Sauvegarde/Restauration")])),
-              const PopupMenuItem<String>(value: 'parametres', child: Row(children: [Icon(Icons.settings_outlined, color: Colors.blueGrey), SizedBox(width: 8), Text("Paramètres")])),
-              const PopupMenuItem<String>(value: 'apropos', child: Row(children: [Icon(Icons.info_outline_rounded, color: Colors.blueGrey), SizedBox(width: 8), Text("À propos")])),
-            ],
-            onSelected: (value) {
-              if (value == 'reset') { _showMyDialogConfirmation(); }
-              else if (value == 'backup') { Navigator.push(context, _slideTransition(const BackupDbPage())).then((_) => _refreshTasks()); }
-              else if (value == 'parametres') { Navigator.push(context, _slideTransition(const ParametresPage())); }
-              else if (value == 'apropos') { Navigator.push(context, _slideTransition(const AproposPage())); }
-            },
-          ),
+          _isSearching
+              ? IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                      _isSearching = false;
+                      _searchController.clear();
+                      _filterTasks();
+                    });
+                  },
+                )
+              : IconButton(
+                  icon: const Icon(Icons.search_rounded, color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                      _isSearching = true;
+                    });
+                  },
+                ),
+          if (!_isSearching)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
+              offset: const Offset(0, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              itemBuilder: (context) => [
+                const PopupMenuItem<String>(value: 'aide', child: Row(children: [Icon(Icons.help_outline_rounded, color: Colors.blueGrey), SizedBox(width: 8), Text("Aide")])),
+                const PopupMenuItem<String>(value: 'reset', child: Row(children: [Icon(Icons.restart_alt, color: Colors.redAccent), SizedBox(width: 8), Text("Réinitialiser la base")])),
+                const PopupMenuItem<String>(value: 'backup', child: Row(children: [Icon(Icons.backup_rounded, color: Colors.blueGrey), SizedBox(width: 8), Text("Sauvegarde/Restauration")])),
+                const PopupMenuItem<String>(value: 'parametres', child: Row(children: [Icon(Icons.settings_outlined, color: Colors.blueGrey), SizedBox(width: 8), Text("Paramètres")])),
+                const PopupMenuItem<String>(value: 'apropos', child: Row(children: [Icon(Icons.info_outline_rounded, color: Colors.blueGrey), SizedBox(width: 8), Text("À propos")])),
+              ],
+              onSelected: (value) {
+                if (value == 'aide') { Navigator.push(context, _slideTransition(const AidePage())); }
+                else if (value == 'reset') { _showMyDialogConfirmation(); }
+                else if (value == 'backup') { Navigator.push(context, _slideTransition(const BackupDbPage())).then((_) => _refreshTasks()); }
+                else if (value == 'parametres') { Navigator.push(context, _slideTransition(const ParametresPage())); }
+                else if (value == 'apropos') { Navigator.push(context, _slideTransition(const AproposPage())); }
+              },
+            ),
           const SizedBox(width: 8),
         ],
       ),
@@ -786,42 +1026,43 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             // Tableau de bord
             if (_tasks.isNotEmpty) Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [Colors.green.shade600, Colors.green.shade400], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))]
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Progression globale", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: LinearProgressIndicator(
-                        value: _tasks.where((t) => t['status'] == 1).length / (_tasks.isEmpty ? 1 : _tasks.length),
-                        backgroundColor: Colors.white.withOpacity(0.3),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                        minHeight: 12,
-                      ),
+              child: Builder(
+                builder: (context) {
+                  double progressValue = _tasks.where((t) => t['status'] == 1).length / (_tasks.isEmpty ? 1 : _tasks.length);
+                  int percentage = (progressValue * 100).toInt();
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 15, offset: const Offset(0, 8))]
                     ),
-                    const SizedBox(height: 10),
-                    Text("${_tasks.where((t) => t['status'] == 1).length} tâches terminées sur ${_tasks.length}", style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Container(
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(hintText: "Rechercher une tâche...", hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15), prefixIcon: Icon(Icons.search_rounded, color: Colors.green.shade400), suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear_rounded, size: 20), onPressed: () { _searchController.clear(); FocusScope.of(context).unfocus(); _filterTasks(); }) : null, border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20)),
-                  onChanged: (v) => _filterTasks(),
-                ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Progression globale", style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600)),
+                            Text("$percentage%", style: const TextStyle(color: Colors.black87, fontSize: 24, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: progressValue,
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                            minHeight: 10,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text("${_tasks.where((t) => t['status'] == 1).length} tâches terminées sur ${_tasks.length}", style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  );
+                }
               ),
             ),
             // Début: Ajout des filtres rapides (Chips)
@@ -840,9 +1081,50 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             const SizedBox(height: 8),
             // Fin: Ajout des filtres rapides
             Expanded(
-              child: _filteredTasks.isEmpty ? _buildEmptyState() : ListView.builder(
+              child: _filteredTasks.isEmpty ? _buildEmptyState() : ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                 itemCount: _filteredTasks.length,
+                onReorder: (int oldIndex, int newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) {
+                      newIndex -= 1;
+                    }
+                    final item = _filteredTasks.removeAt(oldIndex);
+                    _filteredTasks.insert(newIndex, item);
+                    
+                    // Maintenir l'ordre dans la liste principale
+                    final mainOldIndex = _tasks.indexWhere((t) => t['id'] == item['id']);
+                    if (mainOldIndex != -1) {
+                      _tasks.removeAt(mainOldIndex);
+                      if (newIndex == 0) {
+                        _tasks.insert(0, item);
+                      } else if (newIndex == _filteredTasks.length - 1) {
+                        _tasks.add(item);
+                      } else {
+                        final nextItemId = _filteredTasks[newIndex + 1]['id'];
+                        final nextIndexMain = _tasks.indexWhere((t) => t['id'] == nextItemId);
+                        if (nextIndexMain != -1) {
+                          _tasks.insert(nextIndexMain, item);
+                        } else {
+                          _tasks.add(item);
+                        }
+                      }
+                    }
+                  });
+                },
+                proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                  return Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))
+                        ]
+                      ),
+                      child: child,
+                    ),
+                  );
+                },
                 itemBuilder: (context, index) {
                   final task = _filteredTasks[index];
                   final bool isTaskDone = task['status'] == 1;
@@ -885,7 +1167,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         child: InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () => _showTaskDetailsBottomSheet(task),
-                          onLongPress: () => _showMyDialogSuppression(task['id']),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Row(
@@ -909,7 +1190,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(task['titre'].toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: isTaskDone ? Colors.green.shade900 : Colors.black87, fontWeight: FontWeight.bold, fontSize: 16, decoration: isTaskDone ? TextDecoration.lineThrough : null)),
+                                      Text(task['titre'].toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: isTaskDone ? Colors.green.shade900 : Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
                                       const SizedBox(height: 4),
                                       Row(children: [Icon(Icons.access_time_rounded, size: 14, color: isTaskDone ? Colors.green.shade700 : Colors.green.shade400), const SizedBox(width: 4), Text(DateFormat('HH:mm', 'fr_FR').format(taskDate), style: TextStyle(color: isTaskDone ? Colors.green.shade700 : Colors.grey.shade600, fontSize: 13)), const SizedBox(width: 12), Icon(Icons.flag_rounded, size: 14, color: priorityColor), const SizedBox(width: 4), Text(priority, style: TextStyle(color: priorityColor, fontSize: 13))]),
                                     ],

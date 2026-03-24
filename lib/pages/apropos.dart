@@ -98,15 +98,12 @@ class _AproposPageState extends State<AproposPage> with SingleTickerProviderStat
               "Anicet DJIMTOLOUMA",
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1),
             ),
-            const Text(
-              "Co-fondateur & Développeur",
-              style: TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.w500),
-            ),
+
             const SizedBox(height: 32),
             _buildAboutCard(
               icon: Icons.work_rounded,
               iconColor: Colors.indigo,
-              content: "Analyste & Programmeur chevronné chez Panasoft Coorporation.",
+              content: "Ingénieur logiciel, Développeur web et mobile,CEO Panasoft Corporation",
             ),
             const SizedBox(height: 16),
             _buildAboutCard(
@@ -119,7 +116,7 @@ class _AproposPageState extends State<AproposPage> with SingleTickerProviderStat
             _buildAboutCard(
               icon: Icons.business_center_rounded,
               iconColor: Colors.orange,
-              title: "Panasoft Coorporation",
+              title: "Panasoft Corporation",
               content:
                   "Nous créons des solutions logicielles personnalisées et innovantes pour répondre aux défis uniques de votre entreprise. Notre expertise transforme vos idées en réalité numérique.",
             ),
@@ -128,10 +125,9 @@ class _AproposPageState extends State<AproposPage> with SingleTickerProviderStat
               opacity: 0.5,
               child: Column(
                 children: [
-                  Icon(Icons.copyright_rounded, size: 20),
                   SizedBox(height: 4),
                   Text(
-                    "© 2025 Tous Droits Réservés\nPanasoft Coorporation",
+                    "© 2025 Tous Droits Réservés Panasoft Corporation",
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
