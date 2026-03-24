@@ -20,10 +20,10 @@ class DbHelper{
 static Future<Database>_initDatabase() async{
     String path = join(await getDatabasesPath(), 'panatask.db');
     return await openDatabase(
-        path, version: 2, // Version incrémentée pour la migration de schéma
+        path, version: 3, // Version incrémentée pour la migration de schéma
         onCreate: (db, version){
           return db.execute(
-            'CREATE TABLE taches(id INTEGER PRIMARY KEY AUTOINCREMENT, titre TEXT, description TEXT, date TEXT, heure TEXT, date_fin TEXT, creation TEXT, modification TEXT, status INTEGER)');
+            'CREATE TABLE taches(id INTEGER PRIMARY KEY AUTOINCREMENT, titre TEXT, description TEXT, date TEXT, heure TEXT, date_fin TEXT, creation TEXT, modification TEXT, status INTEGER, priority TEXT, is_deleted INTEGER)');
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -32,11 +32,15 @@ static Future<Database>_initDatabase() async{
             await db.execute('ALTER TABLE taches ADD COLUMN creation TEXT');
             await db.execute('ALTER TABLE taches ADD COLUMN modification TEXT');
           }
+          if (oldVersion < 3) {
+            await db.execute('ALTER TABLE taches ADD COLUMN priority TEXT DEFAULT "Moyenne"');
+            await db.execute('ALTER TABLE taches ADD COLUMN is_deleted INTEGER DEFAULT 0');
+          }
         });
 }
 
 //insertion des tâches
-static Future<int>insert(String titre, String description,String date, String heure, String dateFin) async{
+static Future<int>insert(String titre, String description,String date, String heure, String dateFin, {String priority = 'Moyenne'}) async{
   final db = await geDatabse();
   String now = DateTime.now().toString();
   return await db.insert('taches', {
@@ -47,7 +51,9 @@ static Future<int>insert(String titre, String description,String date, String he
     'date_fin': dateFin,
     'creation': now,
     'modification': now,
-    'status': 0
+    'status': 0,
+    'priority': priority,
+    'is_deleted': 0
   });
 }
 
@@ -58,7 +64,7 @@ static Future<int>update(int id, int status) async{
   return await db.update('taches', {'status': status, 'modification': now}, where: 'id = ?', whereArgs: [id]);
 }
 //modification des informations d'une tâche
-  static Future<int>updateTask(int id, String titre, String description, String date, String dateFin) async{
+  static Future<int>updateTask(int id, String titre, String description, String date, String dateFin, {String priority = 'Moyenne'}) async{
     final db = await geDatabse();
     String now = DateTime.now().toString();
     return await db.update('taches', {
@@ -66,26 +72,47 @@ static Future<int>update(int id, int status) async{
       'description': description,
       'date': date,
       'date_fin': dateFin,
-      'modification': now
+      'modification': now,
+      'priority': priority
     }, where: 'id = ?', whereArgs: [id]);
   }
-//suppression des tâches
+//suppression des tâches (Mise à la corbeille - Soft Delete)
 static Future<int>delete(int id) async{
+    final db = await geDatabse();
+  String now = DateTime.now().toString();
+  return await db.update('taches', {'is_deleted': 1, 'modification': now}, where: 'id = ?', whereArgs: [id]);
+}
+
+//suppression définitive
+static Future<int>deletePermanently(int id) async{
     final db = await geDatabse();
   return await db.delete('taches', where: 'id = ?', whereArgs: [id]);
 }
 
-//recuperation des tâches
+//restauration d'une tâche de la corbeille
+static Future<int>restoreTask(int id) async{
+    final db = await geDatabse();
+  String now = DateTime.now().toString();
+  return await db.update('taches', {'is_deleted': 0, 'modification': now}, where: 'id = ?', whereArgs: [id]);
+}
+
+//recuperation des tâches non supprimées
 static Future<List<Map<String, dynamic>>>getTasks() async{
     final db = await geDatabse();
-    return await db.rawQuery('''SELECT * FROM taches ORDER BY date ASC''');
+    return await db.rawQuery('''SELECT * FROM taches WHERE is_deleted = 0 ORDER BY date ASC''');
+}
+
+//recuperation des tâches dans la corbeille
+static Future<List<Map<String, dynamic>>>getDeletedTasks() async{
+    final db = await geDatabse();
+    return await db.rawQuery('''SELECT * FROM taches WHERE is_deleted = 1 ORDER BY modification DESC''');
 }
 
 //reinitialisation de la base
 static Future<void>resetDatabase() async{
     final db = await geDatabse();
     await db.execute('DROP TABLE IF EXISTS taches');
-    await db.execute('CREATE TABLE taches(id INTEGER PRIMARY KEY AUTOINCREMENT, titre TEXT, description TEXT, date TEXT, heure TEXT, date_fin TEXT, creation TEXT, modification TEXT, status INTEGER)');
+    await db.execute('CREATE TABLE taches(id INTEGER PRIMARY KEY AUTOINCREMENT, titre TEXT, description TEXT, date TEXT, heure TEXT, date_fin TEXT, creation TEXT, modification TEXT, status INTEGER, priority TEXT, is_deleted INTEGER)');
 }
 
   // --- Fonctions de Sauvegarde et Restauration mises à jour ---
