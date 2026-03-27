@@ -198,4 +198,26 @@ static Future<void>resetDatabase() async{
     String databasesPath = await getDatabasesPath();
     return join(databasesPath, 'panatask.db');
   }
+
+  /// Get active (non-deleted, non-completed) tasks that may need notifications
+  static Future<List<Map<String, dynamic>>> getActivePendingTasks() async {
+    final db = await geDatabse();
+    return await db.rawQuery(
+        '''SELECT * FROM taches WHERE is_deleted = 0 AND status = 0 ORDER BY date ASC''');
+  }
+
+  /// Get task statistics
+  static Future<Map<String, int>> getTaskStats() async {
+    final db = await geDatabse();
+    final all = await db.rawQuery('SELECT COUNT(*) as c FROM taches WHERE is_deleted = 0');
+    final done = await db.rawQuery('SELECT COUNT(*) as c FROM taches WHERE is_deleted = 0 AND status = 1');
+    final pending = await db.rawQuery('SELECT COUNT(*) as c FROM taches WHERE is_deleted = 0 AND status = 0');
+    final deleted = await db.rawQuery('SELECT COUNT(*) as c FROM taches WHERE is_deleted = 1');
+    return {
+      'total': (all.first['c'] as int?) ?? 0,
+      'done': (done.first['c'] as int?) ?? 0,
+      'pending': (pending.first['c'] as int?) ?? 0,
+      'deleted': (deleted.first['c'] as int?) ?? 0,
+    };
+  }
 }

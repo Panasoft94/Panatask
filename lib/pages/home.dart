@@ -55,6 +55,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 600),
     );
     _animationController.forward();
+
+    // Re-schedule all pending notifications on app start
+    _rescheduleAllNotifications();
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -97,6 +100,62 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await androidImplementation?.requestNotificationsPermission();
+      // Request exact alarms permission for Android 12+
+      await androidImplementation?.requestExactAlarmsPermission();
+    }
+  }
+
+  /// Re-schedule notifications for ALL incomplete tasks on app startup.
+  /// This is critical because scheduled alarms can be lost after device reboot
+  /// or after the app is force-stopped.
+  Future<void> _rescheduleAllNotifications() async {
+    try {
+      final tasks = await DbHelper.getTasks();
+      final mutableTasks = List<Map<String, dynamic>>.from(
+          tasks.map((task) => Map<String, dynamic>.from(task)));
+
+      // Cancel all existing notifications first to avoid duplicates
+      await flutterLocalNotificationsPlugin.cancelAll();
+
+      for (final task in mutableTasks) {
+        // Only schedule for incomplete tasks
+        if (task['status'] == 1) continue;
+
+        final int taskId = task['id'];
+        DateTime taskDate;
+        DateTime taskEndDate;
+
+        try {
+          taskDate = DateFormat('yyyy-MM-dd HH:mm').parse(task['date']);
+        } catch (_) {
+          continue;
+        }
+
+        try {
+          if (task['date_fin'] != null && task['date_fin'].toString().isNotEmpty) {
+            taskEndDate = DateFormat('yyyy-MM-dd HH:mm').parse(task['date_fin']);
+          } else {
+            continue;
+          }
+        } catch (_) {
+          continue;
+        }
+
+        final String titre = task['titre'] ?? '';
+        final String description = task['description'] ?? '';
+
+        // Schedule based on task duration
+        if (taskEndDate.isAfter(taskDate.add(const Duration(days: 1))) || taskDate.day != taskEndDate.day) {
+          await _scheduleDailyNotificationsBetweenDates(
+              taskId, "Rappel quotidien: $titre", description, taskDate, taskEndDate);
+        } else if (taskDate.isAfter(DateTime.now())) {
+          await _scheduleNotificationSingle(
+              taskId, "Rappel: $titre", description, taskDate);
+        }
+      }
+      debugPrint('All notifications rescheduled successfully');
+    } catch (e) {
+      debugPrint('Error rescheduling notifications: $e');
     }
   }
 
@@ -108,6 +167,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     DateTime currentDay = DateTime(
         startDate.year, startDate.month, startDate.day, hour, minute);
 
+    // If start date is in the past, start from today or tomorrow
     if (currentDay.isBefore(DateTime.now())) {
       DateTime todayAtTime = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, hour, minute);
       if (todayAtTime.isBefore(DateTime.now())) {
@@ -117,12 +177,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
     }
 
-    if (currentDay.isAfter(endDate)) return;
+    // Don't schedule if we're already past the end date
+    if (currentDay.isAfter(endDate)) {
+      debugPrint('No notifications to schedule: start ($currentDay) is after end ($endDate)');
+      return;
+    }
 
     const AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
       'daily_reminder_channel', 'Rappel Quotidien',
       channelDescription: 'Rappels quotidiens pour les tâches',
       importance: Importance.max, priority: Priority.high, ticker: 'ticker',
+      styleInformation: BigTextStyleInformation(''),
     );
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidNotificationDetails,
@@ -131,23 +196,36 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
     int baseId = id * 1000;
     int dayCount = 0;
+    // Limit to 50 notifications max per task to avoid hitting Android's alarm limit
+    const int maxNotifications = 50;
 
     while (currentDay.isBefore(endDate.add(const Duration(minutes: 1)))) {
-      final tz.TZDateTime tzScheduledDate = tz.TZDateTime.from(currentDay, tz.local);
-      int uniqueDayId = baseId + dayCount;
-      try {
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          uniqueDayId, title, body, tzScheduledDate, notificationDetails,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          payload: 'TaskID|$id',
-        );
-        dayCount++;
-      } catch (e) {
-        debugPrint('Error scheduling daily notification: $e');
+      if (dayCount >= maxNotifications) {
+        debugPrint('Max notifications limit ($maxNotifications) reached for task $id');
+        break;
       }
+      
+      final tz.TZDateTime tzScheduledDate = tz.TZDateTime.from(currentDay, tz.local);
+      
+      // Only schedule future notifications
+      if (tzScheduledDate.isAfter(tz.TZDateTime.now(tz.local))) {
+        int uniqueDayId = baseId + dayCount;
+        try {
+          await flutterLocalNotificationsPlugin.zonedSchedule(
+            uniqueDayId, title, body, tzScheduledDate, notificationDetails,
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            payload: 'TaskID|$id',
+          );
+          debugPrint('Scheduled notification $uniqueDayId at $tzScheduledDate for task $id');
+        } catch (e) {
+          debugPrint('Error scheduling daily notification for task $id at $tzScheduledDate: $e');
+        }
+      }
+      
+      dayCount++;
       currentDay = currentDay.add(const Duration(days: 1));
-      if (dayCount > 365) break;
     }
+    debugPrint('Scheduled $dayCount daily notifications for task $id');
   }
 
   void _addTask() async {
@@ -304,12 +382,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<void> _scheduleNotificationSingle(int id, String title, String body,
       DateTime scheduledDateTime) async {
-    if (scheduledDateTime.isBefore(DateTime.now())) return;
+    if (scheduledDateTime.isBefore(DateTime.now())) {
+      debugPrint('Skip scheduling single notification for task $id: date is in the past');
+      return;
+    }
     final tz.TZDateTime tzScheduledDate = tz.TZDateTime.from(scheduledDateTime, tz.local);
     const AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
       'your_channel_id', 'your_channel_name',
       channelDescription: 'your_channel_description',
       importance: Importance.max, priority: Priority.high, ticker: 'ticker',
+      styleInformation: BigTextStyleInformation(''),
     );
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidNotificationDetails,
@@ -321,17 +403,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: 'TaskID|$id',
       );
+      debugPrint('Scheduled single notification $id at $tzScheduledDate');
     } catch (e) {
-      debugPrint('Error scheduling notification: $e');
+      debugPrint('Error scheduling single notification for task $id: $e');
     }
   }
 
   Future<void> _cancelNotification(int id) async {
+    // Cancel single notification
     await flutterLocalNotificationsPlugin.cancel(id);
+    // Cancel all daily notifications for this task (baseId = id * 1000)
     int baseId = id * 1000;
-    for (int i = 0; i < 367; i++) {
+    for (int i = 0; i < 51; i++) {
       await flutterLocalNotificationsPlugin.cancel(baseId + i);
     }
+    debugPrint('Cancelled all notifications for task $id');
   }
 
   PageRouteBuilder _slideTransition(Widget page) {
